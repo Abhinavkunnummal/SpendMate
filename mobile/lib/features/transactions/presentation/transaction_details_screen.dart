@@ -58,7 +58,7 @@ class TransactionDetailsScreen extends StatelessWidget {
             Container(
               width: 64,
               height: 64,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AppColors.coralLight,
                 shape: BoxShape.circle,
               ),

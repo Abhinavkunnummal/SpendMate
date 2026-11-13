@@ -69,24 +69,24 @@ class _ReceiptScannerScreenState extends State<ReceiptScannerScreen> {
                     ),
                   ),
                   if (_isProcessing) ...[
-                    Column(
+                    const Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const CircularProgressIndicator(color: AppColors.primary),
-                        const SizedBox(height: 12),
-                        const Text(
+                        CircularProgressIndicator(color: AppColors.primary),
+                        SizedBox(height: 12),
+                        Text(
                           'Extracting OCR Data with AI...',
                           style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
                         ),
                       ],
                     ),
                   ] else if (!_isScanned) ...[
-                    Column(
+                    const Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.document_scanner_rounded, size: 48, color: Colors.white70),
-                        const SizedBox(height: 10),
-                        const Text(
+                        Icon(Icons.document_scanner_rounded, size: 48, color: Colors.white70),
+                        SizedBox(height: 10),
+                        Text(
                           'Align physical receipt inside the frame',
                           style: TextStyle(color: Colors.white70, fontSize: 12),
                         ),

@@ -30,8 +30,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     {'name': 'Groceries', 'icon': Icons.shopping_basket_rounded, 'color': AppColors.primary},
     {'name': 'Shopping', 'icon': Icons.shopping_bag_outlined, 'color': AppColors.orange},
     {'name': 'Bills & Utilities', 'icon': Icons.receipt_long_rounded, 'color': AppColors.purple},
-    {'name': 'Transport', 'icon': Icons.local_gas_station_rounded, 'color': Color(0xFFF59E0B)},
-    {'name': 'Entertainment', 'icon': Icons.movie_outlined, 'color': Color(0xFFEC4899)},
+    {'name': 'Transport', 'icon': Icons.local_gas_station_rounded, 'color': const Color(0xFFF59E0B)},
+    {'name': 'Entertainment', 'icon': Icons.movie_outlined, 'color': const Color(0xFFEC4899)},
     {'name': 'Salary', 'icon': Icons.payments_rounded, 'color': AppColors.primary},
   ];
 

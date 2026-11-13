@@ -178,7 +178,7 @@ class _TripItineraryScreenState extends State<TripItineraryScreen> {
                         ],
                       ),
                     );
-                  }).toList(),
+                  }),
                   const SizedBox(height: 24),
 
                   AppButton(

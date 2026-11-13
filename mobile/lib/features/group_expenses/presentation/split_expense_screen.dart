@@ -118,7 +118,7 @@ class _SplitExpenseScreenState extends State<SplitExpenseScreen> {
                         ],
                       ),
                     );
-                  }).toList(),
+                  }),
                 ],
               ),
             ),

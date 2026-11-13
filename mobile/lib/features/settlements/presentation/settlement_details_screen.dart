@@ -33,21 +33,21 @@ class _SettlementDetailsScreenState extends State<SettlementDetailsScreen> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Payer to Receiver Avatar Row
-            Row(
+            const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 CircleAvatar(
                   radius: 26,
                   backgroundColor: AppColors.coralLight,
-                  child: const Text('RM', style: TextStyle(color: AppColors.coral, fontWeight: FontWeight.w700)),
+                  child: Text('RM', style: TextStyle(color: AppColors.coral, fontWeight: FontWeight.w700)),
                 ),
-                const SizedBox(width: 14),
-                const Icon(Icons.arrow_forward_rounded, color: AppColors.primary, size: 24),
-                const SizedBox(width: 14),
+                SizedBox(width: 14),
+                Icon(Icons.arrow_forward_rounded, color: AppColors.primary, size: 24),
+                SizedBox(width: 14),
                 CircleAvatar(
                   radius: 26,
                   backgroundColor: AppColors.primaryLight,
-                  child: const Text('KV', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
+                  child: Text('KV', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
                 ),
               ],
             ),

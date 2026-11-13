@@ -26,6 +26,7 @@ class AuthSessionManager extends ChangeNotifier {
   bool get isInitialized => _isInitialized;
   bool get isAuthenticated => _isAuthenticated;
   String? get token => _token;
+  String? get refreshToken => _refreshToken;
   String? get userId => _userId;
   String? get userName => _userName ?? 'Kunal Verma';
   String? get phoneNumber => _phoneNumber ?? '+91 98765 43210';
