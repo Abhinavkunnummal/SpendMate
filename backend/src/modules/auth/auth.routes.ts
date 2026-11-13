@@ -27,6 +27,12 @@ router.post(
 );
 
 router.post(
+  '/firebase-session',
+  authRateLimiter,
+  AuthController.firebaseSession
+);
+
+router.post(
   '/profile-setup',
   authenticate,
   validateRequest(profileSetupSchema),

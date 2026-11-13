@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_button.dart';
+import '../../../core/auth/auth_session_manager.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -30,9 +31,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              context.go('/welcome');
+              await AuthSessionManager.instance.logout();
+              if (mounted) {
+                context.go('/welcome');
+              }
             },
             child: const Text('Log Out', style: TextStyle(color: AppColors.coral)),
           ),
@@ -58,46 +62,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // User Header Profile Card
-            AppCard(
-              padding: const EdgeInsets.all(18),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 32,
-                    backgroundColor: isDark ? AppColors.surfaceDark : AppColors.primaryLight,
-                    child: Text(
-                      'KV',
-                      style: AppTypography.titleLarge(AppColors.primary),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Kunal Verma',
-                          style: AppTypography.titleMedium(primaryTextColor),
+            ListenableBuilder(
+              listenable: AuthSessionManager.instance,
+              builder: (context, _) {
+                final auth = AuthSessionManager.instance;
+                final displayName = auth.userName ?? 'Kunal Verma';
+                final displayPhone = auth.phoneNumber ?? '+91 98765 43210';
+                final initials = displayName.split(' ').where((s) => s.isNotEmpty).map((s) => s[0]).take(2).join();
+
+                return AppCard(
+                  padding: const EdgeInsets.all(18),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 32,
+                        backgroundColor: isDark ? AppColors.surfaceDark : AppColors.primaryLight,
+                        child: Text(
+                          initials.isNotEmpty ? initials : 'SM',
+                          style: AppTypography.titleLarge(AppColors.primary),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '+91 98765 43210',
-                          style: AppTypography.bodySmall(secondaryTextColor),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              displayName,
+                              style: AppTypography.titleMedium(primaryTextColor),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              displayPhone,
+                              style: AppTypography.bodySmall(secondaryTextColor),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'kunal@example.com',
+                              style: AppTypography.bodySmall(secondaryTextColor),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'kunal@example.com',
-                          style: AppTypography.bodySmall(secondaryTextColor),
-                        ),
-                      ],
-                    ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, size: 20),
+                        onPressed: () => context.push('/profile-setup'),
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.edit_outlined, size: 20),
-                    onPressed: () => context.push('/profile-setup'),
-                  ),
-                ],
-              ),
+                );
+              },
             ),
             const SizedBox(height: 24),
 

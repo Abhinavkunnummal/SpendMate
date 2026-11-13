@@ -2,6 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IUser extends Document {
   _id: mongoose.Types.ObjectId;
+  firebaseUid?: string;
   phoneNumber: string;
   name?: string;
   email?: string;
@@ -22,6 +23,13 @@ export interface IUser extends Document {
 
 const UserSchema = new Schema<IUser>(
   {
+    firebaseUid: {
+      type: String,
+      sparse: true,
+      index: true,
+      unique: true,
+      trim: true,
+    },
     phoneNumber: {
       type: String,
       required: true,

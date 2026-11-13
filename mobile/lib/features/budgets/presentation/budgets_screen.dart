@@ -83,9 +83,9 @@ class BudgetsScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _statSummary('Remaining', '₹16,000', AppColors.primary),
-                      _statSummary('Daily Safe Spend', '₹888 / day', primaryTextColor),
-                      _statSummary('Projected', '₹48,200', secondaryTextColor),
+                      Expanded(child: _statSummary('Remaining', '₹16,000', AppColors.primary)),
+                      Expanded(child: _statSummary('Daily Safe Spend', '₹888 / day', primaryTextColor)),
+                      Expanded(child: _statSummary('Projected', '₹48,200', secondaryTextColor)),
                     ],
                   ),
                 ],
@@ -157,9 +157,19 @@ class BudgetsScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textSecondaryLight)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: AppColors.textSecondaryLight),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         const SizedBox(height: 2),
-        Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: valueColor)),
+        Text(
+          value,
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: valueColor),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
       ],
     );
   }

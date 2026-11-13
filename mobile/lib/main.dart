@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
+import 'core/auth/auth_session_manager.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Restore persistent authentication session from encrypted storage
+  await AuthSessionManager.instance.initialize();
   runApp(
     const ProviderScope(
       child: SpendMateApp(),

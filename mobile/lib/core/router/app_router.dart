@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'scaffold_with_nav_bar.dart';
+import '../auth/auth_session_manager.dart';
 
 // Screens
 import '../../features/auth/presentation/welcome_screen.dart';
@@ -37,7 +38,32 @@ final _shellNavigatorAnalyticsKey = GlobalKey<NavigatorState>();
 
 final appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
-  initialLocation: '/welcome',
+  initialLocation: '/dashboard',
+  refreshListenable: AuthSessionManager.instance,
+  redirect: (BuildContext context, GoRouterState state) {
+    final auth = AuthSessionManager.instance;
+    // Still initializing session from encrypted storage
+    if (!auth.isInitialized) {
+      return null;
+    }
+
+    final isAuthenticated = auth.isAuthenticated;
+    final isAuthRoute =
+        state.matchedLocation == '/welcome' || state.matchedLocation == '/login';
+
+    // If unauthenticated and trying to access private screens, redirect to /welcome
+    if (!isAuthenticated) {
+      return isAuthRoute ? null : '/welcome';
+    }
+
+    // If authenticated and on welcome or login screen, redirect to /dashboard
+    if (isAuthRoute) {
+      return '/dashboard';
+    }
+
+    // Allow user on /profile-setup and normal protected screens
+    return null;
+  },
   routes: [
     // Auth Routes
     GoRoute(

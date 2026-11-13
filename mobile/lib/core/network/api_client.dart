@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../constants/api_constants.dart';
 import '../storage/secure_storage_service.dart';
+import '../auth/auth_session_manager.dart';
 
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
@@ -58,8 +59,10 @@ class ApiClient {
                   return handler.resolve(cloneReq);
                 }
               } catch (_) {
-                await SecureStorageService.clearAuth();
+                await AuthSessionManager.instance.logout();
               }
+            } else {
+              await AuthSessionManager.instance.logout();
             }
           }
           return handler.next(error);

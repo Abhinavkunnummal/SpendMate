@@ -163,12 +163,14 @@ class DashboardScreen extends StatelessWidget {
                                     child: const Icon(Icons.arrow_downward_rounded, size: 14, color: Colors.white),
                                   ),
                                   const SizedBox(width: 8),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('Income', style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 11)),
-                                      const Text('₹1,85,000', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
-                                    ],
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('Income', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 11)),
+                                        const Text('₹1,85,000', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
@@ -188,12 +190,14 @@ class DashboardScreen extends StatelessWidget {
                                       child: const Icon(Icons.arrow_upward_rounded, size: 14, color: Colors.white),
                                     ),
                                     const SizedBox(width: 8),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Spent', style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 11)),
-                                        const Text('₹42,150', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
-                                      ],
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text('Spent', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 11)),
+                                          const Text('₹42,150', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -282,8 +286,9 @@ class DashboardScreen extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('₹34,000 spent', style: AppTypography.bodySmall(secondaryTextColor)),
-                          Text('₹16,000 left of ₹50,000', style: AppTypography.bodySmall(secondaryTextColor)),
+                          Flexible(child: Text('₹34,000 spent', maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTypography.bodySmall(secondaryTextColor))),
+                          const SizedBox(width: 8),
+                          Flexible(child: Text('₹16,000 left of ₹50,000', maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTypography.bodySmall(secondaryTextColor))),
                         ],
                       ),
                     ],

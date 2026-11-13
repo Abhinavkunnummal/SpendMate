@@ -4,6 +4,7 @@ import { UserModel, IUser } from '../users/user.model';
 import { UnauthorizedError, NotFoundError } from '../../common/errors';
 import { AuthUserPayload } from '../../common/middleware/auth';
 import { logger } from '../../common/logger';
+import { verifyFirebaseToken } from '../../config/firebase';
 
 // In-memory OTP storage for rapid verification
 const otpStore = new Map<string, { code: string; expiresAt: number }>();
@@ -55,6 +56,49 @@ export class AuthService {
     if (!user) {
       user = await UserModel.create({
         phoneNumber,
+        isProfileCompleted: false,
+      });
+      isNewUser = true;
+    }
+
+    const tokens = this.generateTokens(user);
+
+    return {
+      user,
+      token: tokens.token,
+      refreshToken: tokens.refreshToken,
+      isNewUser,
+    };
+  }
+
+  /**
+   * Verifies Firebase ID Token, synchronizes user in MongoDB, and issues SpendMate session tokens
+   */
+  static async verifyFirebaseSession(
+    idToken: string
+  ): Promise<{ user: IUser; token: string; refreshToken: string; isNewUser: boolean }> {
+    const firebaseUser = await verifyFirebaseToken(idToken);
+    if (!firebaseUser) {
+      throw new UnauthorizedError('Invalid or expired Firebase ID token');
+    }
+
+    let user = await UserModel.findOne({ firebaseUid: firebaseUser.uid });
+    let isNewUser = false;
+
+    if (!user && firebaseUser.phone_number) {
+      user = await UserModel.findOne({ phoneNumber: firebaseUser.phone_number });
+      if (user) {
+        user.firebaseUid = firebaseUser.uid;
+        await user.save();
+      }
+    }
+
+    if (!user) {
+      user = await UserModel.create({
+        firebaseUid: firebaseUser.uid,
+        phoneNumber: firebaseUser.phone_number || '',
+        email: firebaseUser.email,
+        name: firebaseUser.name || '',
         isProfileCompleted: false,
       });
       isNewUser = true;

@@ -213,7 +213,15 @@ class BalancesScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(name, style: AppTypography.bodyMedium(textColor).copyWith(fontWeight: FontWeight.w500)),
+          Expanded(
+            child: Text(
+              name,
+              style: AppTypography.bodyMedium(textColor).copyWith(fontWeight: FontWeight.w500),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
           Row(
             children: [
               Text(

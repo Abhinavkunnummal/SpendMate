@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_card.dart';
+import '../../../core/auth/auth_session_manager.dart';
 
 class PhoneLoginScreen extends StatefulWidget {
   const PhoneLoginScreen({super.key});
@@ -87,7 +88,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
     setState(() {});
   }
 
-  void _handleVerifyOtp() {
+  void _handleVerifyOtp() async {
     final otp = _otpControllers.map((c) => c.text).join();
     if (otp.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -97,11 +98,23 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
     }
 
     setState(() => _isLoading = true);
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      context.go('/profile-setup');
-    });
+    final phone = _phoneController.text.trim();
+
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
+
+    // Establish persistent auth session across restarts
+    await AuthSessionManager.instance.loginSuccess(
+      token: 'spendmate_session_${DateTime.now().millisecondsSinceEpoch}',
+      refreshToken: 'spendmate_refresh_${DateTime.now().millisecondsSinceEpoch}',
+      userId: 'user_spendmate_$phone',
+      userName: 'Kunal Verma',
+      phoneNumber: '+91 $phone',
+    );
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+    context.go('/profile-setup');
   }
 
   @override

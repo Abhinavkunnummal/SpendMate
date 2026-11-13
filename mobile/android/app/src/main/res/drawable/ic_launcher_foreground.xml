@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Outer Wallet Shadow Layer -->
+    <path
+        android:fillColor="#15000000"
+        android:pathData="M31,35 h46 c4.4,0 8,3.6 8,8 v30 c0,4.4 -3.6,8 -8,8 h-46 c-4.4,0 -8,-3.6 -8,-8 v-30 c0,-4.4 3.6,-8 8,-8 Z"/>
+
+    <!-- Credit Card Peeking from Top of Wallet -->
+    <path
+        android:fillColor="#E0F2EC"
+        android:pathData="M35,28 h38 c3.3,0 6,2.7 6,6 v12 h-50 v-12 c0,-3.3 2.7,-6 6,-6 Z"/>
+
+    <!-- Main Wallet Body (Crisp White) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,36 h48 c4.4,0 8,3.6 8,8 v26 c0,4.4 -3.6,8 -8,8 h-48 c-4.4,0 -8,-3.6 -8,-8 v-26 c0,-4.4 3.6,-8 8,-8 Z"/>
+
+    <!-- Wallet Top Flap / Fold Accent -->
+    <path
+        android:fillColor="#F0FAF6"
+        android:pathData="M22,44 c0,-4.4 3.6,-8 8,-8 h48 c4.4,0 8,3.6 8,8 v4 h-64 v-4 Z"/>
+
+    <!-- Wallet Clasp / Fastener Tab -->
+    <path
+        android:fillColor="#16A878"
+        android:pathData="M64,50 h18 c2.2,0 4,1.8 4,4 v8 c0,2.2 -1.8,4 -4,4 h-18 Z"/>
+
+    <!-- Golden Token / Clasp Coin Button -->
+    <path
+        android:fillColor="#FFA94D"
+        android:pathData="M73,58 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0"/>
+
+    <!-- Sparkling Dynamic Split / Growth Vector Star -->
+    <path
+        android:fillColor="#16A878"
+        android:pathData="M42,54 L44,48 L46,54 L52,56 L46,58 L44,64 L42,58 L36,56 Z"/>
+</vector>

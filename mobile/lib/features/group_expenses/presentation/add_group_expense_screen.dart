@@ -191,14 +191,18 @@ class _AddGroupExpenseScreenState extends State<AddGroupExpenseScreen> {
                     color: isMatching ? AppColors.primary : AppColors.coral,
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    isMatching
-                        ? 'Total contributions match ₹$targetAmount'
-                        : 'Paid sum ₹$currentPaidSum of ₹$targetAmount (Difference: ₹${targetAmount - currentPaidSum})',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: isMatching ? AppColors.primary : AppColors.coral,
+                  Expanded(
+                    child: Text(
+                      isMatching
+                          ? 'Total contributions match ₹$targetAmount'
+                          : 'Paid sum ₹$currentPaidSum of ₹$targetAmount (Diff: ₹${targetAmount - currentPaidSum})',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isMatching ? AppColors.primary : AppColors.coral,
+                      ),
                     ),
                   ),
                 ],

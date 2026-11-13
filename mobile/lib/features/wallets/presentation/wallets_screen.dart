@@ -152,7 +152,14 @@ class WalletsScreen extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(name, style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 15)),
+                    Flexible(
+                      child: Text(
+                        name,
+                        style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 15),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                     if (isDefault) ...[
                       const SizedBox(width: 8),
                       const StatusBadge(label: 'Default', color: AppColors.primary),

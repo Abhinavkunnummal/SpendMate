@@ -94,29 +94,35 @@ class TripDetailsScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('TOTAL SPENT', style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 10)),
-                          const SizedBox(height: 2),
-                          const Text('₹48,200', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
-                        ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('TOTAL SPENT', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 10)),
+                            const SizedBox(height: 2),
+                            const Text('₹48,200', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                          ],
+                        ),
                       ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('BUDGET', style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 10)),
-                          const SizedBox(height: 2),
-                          const Text('₹80,000', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
-                        ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text('BUDGET', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 10)),
+                            const SizedBox(height: 2),
+                            const Text('₹80,000', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                          ],
+                        ),
                       ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text('YOUR BALANCE', style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 10)),
-                          const SizedBox(height: 2),
-                          const Text('+₹960', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700)),
-                        ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text('YOUR BALANCE', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 10)),
+                            const SizedBox(height: 2),
+                            const Text('+₹960', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                          ],
+                        ),
                       ),
                     ],
                   ),

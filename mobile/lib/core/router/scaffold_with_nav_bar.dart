@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/app_colors.dart';
 
-class ScaffoldWithNavBar extends StatelessWidget {
+class ScaffoldWithNavBar extends StatefulWidget {
   final StatefulNavigationShell navigationShell;
 
   const ScaffoldWithNavBar({
@@ -10,104 +11,143 @@ class ScaffoldWithNavBar extends StatelessWidget {
     required this.navigationShell,
   });
 
+  @override
+  State<ScaffoldWithNavBar> createState() => _ScaffoldWithNavBarState();
+}
+
+class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
+  DateTime? _lastBackPressTime;
+
   void _onTap(BuildContext context, int index) {
-    navigationShell.goBranch(
+    widget.navigationShell.goBranch(
       index,
-      initialLocation: index == navigationShell.currentIndex,
+      initialLocation: index == widget.navigationShell.currentIndex,
     );
+  }
+
+  void _handleBackPress() {
+    // 1. If on any tab other than Home (index 0), switch back to Home Dashboard tab
+    if (widget.navigationShell.currentIndex != 0) {
+      widget.navigationShell.goBranch(0);
+      return;
+    }
+
+    // 2. If on Home Dashboard, require double-tap back within 2 seconds to exit
+    final now = DateTime.now();
+    if (_lastBackPressTime == null || now.difference(_lastBackPressTime!) > const Duration(seconds: 2)) {
+      _lastBackPressTime = now;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Press back again to exit SpendMate'),
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    // User confirmed exit
+    SystemNavigator.pop();
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final currentIndex = navigationShell.currentIndex;
+    final currentIndex = widget.navigationShell.currentIndex;
 
-    return Scaffold(
-      body: navigationShell,
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: isDark ? AppColors.cardDark : Colors.white,
-          border: Border(
-            top: BorderSide(
-              color: isDark ? AppColors.borderDark : AppColors.borderLight,
-              width: 1,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBackPress();
+      },
+      child: Scaffold(
+        body: widget.navigationShell,
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.cardDark : Colors.white,
+            border: Border(
+              top: BorderSide(
+                color: isDark ? AppColors.borderDark : AppColors.borderLight,
+                width: 1,
+              ),
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, -2),
+              ),
+            ],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: SizedBox(
-            height: 64,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _navItem(
-                  icon: Icons.account_balance_wallet_outlined,
-                  activeIcon: Icons.account_balance_wallet_rounded,
-                  label: 'Home',
-                  isSelected: currentIndex == 0,
-                  onTap: () => _onTap(context, 0),
-                  isDark: isDark,
-                ),
-                _navItem(
-                  icon: Icons.receipt_long_outlined,
-                  activeIcon: Icons.receipt_long_rounded,
-                  label: 'Expenses',
-                  isSelected: currentIndex == 1,
-                  onTap: () => _onTap(context, 1),
-                  isDark: isDark,
-                ),
-                // Central Elevated Action Button
-                GestureDetector(
-                  onTap: () => context.push('/add-transaction'),
-                  child: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF16A878), Color(0xFF00A878)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withOpacity(0.35),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
+          child: SafeArea(
+            child: SizedBox(
+              height: 64,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _navItem(
+                    icon: Icons.account_balance_wallet_outlined,
+                    activeIcon: Icons.account_balance_wallet_rounded,
+                    label: 'Home',
+                    isSelected: currentIndex == 0,
+                    onTap: () => _onTap(context, 0),
+                    isDark: isDark,
+                  ),
+                  _navItem(
+                    icon: Icons.receipt_long_outlined,
+                    activeIcon: Icons.receipt_long_rounded,
+                    label: 'Expenses',
+                    isSelected: currentIndex == 1,
+                    onTap: () => _onTap(context, 1),
+                    isDark: isDark,
+                  ),
+                  // Central Elevated Action Button
+                  GestureDetector(
+                    onTap: () => context.push('/add-transaction'),
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF16A878), Color(0xFF00A878)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.add_rounded,
-                      color: Colors.white,
-                      size: 26,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.35),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.add_rounded,
+                        color: Colors.white,
+                        size: 26,
+                      ),
                     ),
                   ),
-                ),
-                _navItem(
-                  icon: Icons.luggage_outlined,
-                  activeIcon: Icons.luggage_rounded,
-                  label: 'Trips',
-                  isSelected: currentIndex == 2,
-                  onTap: () => _onTap(context, 2),
-                  isDark: isDark,
-                ),
-                _navItem(
-                  icon: Icons.pie_chart_outline_rounded,
-                  activeIcon: Icons.pie_chart_rounded,
-                  label: 'Analytics',
-                  isSelected: currentIndex == 3,
-                  onTap: () => _onTap(context, 3),
-                  isDark: isDark,
-                ),
-              ],
+                  _navItem(
+                    icon: Icons.luggage_outlined,
+                    activeIcon: Icons.luggage_rounded,
+                    label: 'Trips',
+                    isSelected: currentIndex == 2,
+                    onTap: () => _onTap(context, 2),
+                    isDark: isDark,
+                  ),
+                  _navItem(
+                    icon: Icons.pie_chart_outline_rounded,
+                    activeIcon: Icons.pie_chart_rounded,
+                    label: 'Analytics',
+                    isSelected: currentIndex == 3,
+                    onTap: () => _onTap(context, 3),
+                    isDark: isDark,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

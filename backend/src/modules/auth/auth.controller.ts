@@ -25,6 +25,16 @@ export class AuthController {
     }
   }
 
+  static async firebaseSession(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { idToken } = req.body;
+      const result = await AuthService.verifyFirebaseSession(idToken);
+      sendSuccess(res, result, 'Firebase authentication session established');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async setupProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.userId;
