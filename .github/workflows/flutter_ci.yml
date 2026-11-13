@@ -57,17 +57,17 @@ jobs:
       - name: Run Unit & Widget Tests
         run: |
           flutter test 2>&1 | tee test_out.log || true
-          FAILING_TEST=$(grep -E '\[E\]|FAILED|Expected:' test_out.log | head -n 4 || true)
-          if [ -n "$FAILING_TEST" ]; then
-            echo "::warning title=TestFailure::$FAILING_TEST"
+          FAIL_INFO=$(grep -A 5 -E 'FAILED:|══╡ EXCEPTION' test_out.log | tr '\n' ' ' | cut -c 1-500 || true)
+          if [ -n "$FAIL_INFO" ]; then
+            echo "::error title=TestException::$FAIL_INFO"
           fi
 
       - name: Build Android APK
         run: |
           flutter build apk --debug 2>&1 | tee build_apk.log
           if [ ! -f "build/app/outputs/flutter-apk/app-debug.apk" ]; then
-            LAST_LINES=$(tail -n 15 build_apk.log | tr '\n' ' ' | cut -c 1-500)
-            echo "::error title=GradleBuildFailure::$LAST_LINES"
+            DART_ERR=$(grep -B 1 -A 6 -E 'Error:|Exception:|Target kernel_snapshot' build_apk.log | tr '\n' ' ' | cut -c 1-500 || true)
+            echo "::error title=DartCompilerError::$DART_ERR"
             exit 1
           fi
 
