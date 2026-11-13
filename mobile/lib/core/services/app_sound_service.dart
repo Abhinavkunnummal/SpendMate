@@ -39,4 +39,7 @@ class AppSoundService {
       SystemSound.play(SystemSoundType.click);
     } catch (_) {}
   }
+
+  /// Alias for income / action chime
+  static void playChime() => playIncomeChime();
 }
