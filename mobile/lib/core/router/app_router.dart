@@ -34,6 +34,7 @@ import '../../features/patt_book/presentation/patt_book_screen.dart';
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorDashboardKey = GlobalKey<NavigatorState>();
 final _shellNavigatorTransactionsKey = GlobalKey<NavigatorState>();
+final _shellNavigatorPattBookKey = GlobalKey<NavigatorState>();
 final _shellNavigatorTripsKey = GlobalKey<NavigatorState>();
 final _shellNavigatorAnalyticsKey = GlobalKey<NavigatorState>();
 
@@ -108,7 +109,18 @@ final appRouter = GoRouter(
           ],
         ),
 
-        // Tab 3: Trips (Screen 12)
+        // Tab 3: Patt Book (Friend Debts & IOU Ledger)
+        StatefulShellBranch(
+          navigatorKey: _shellNavigatorPattBookKey,
+          routes: [
+            GoRoute(
+              path: '/patt-book',
+              builder: (context, state) => const PattBookScreen(),
+            ),
+          ],
+        ),
+
+        // Tab 4: Trips (Screen 12)
         StatefulShellBranch(
           navigatorKey: _shellNavigatorTripsKey,
           routes: [
@@ -119,7 +131,7 @@ final appRouter = GoRouter(
           ],
         ),
 
-        // Tab 4: Analytics (Screen 11)
+        // Tab 5: Analytics (Screen 11)
         StatefulShellBranch(
           navigatorKey: _shellNavigatorAnalyticsKey,
           routes: [
@@ -153,11 +165,6 @@ final appRouter = GoRouter(
       path: '/wallets',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const WalletsScreen(), // Screen 8
-    ),
-    GoRoute(
-      path: '/patt-book',
-      parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => const PattBookScreen(),
     ),
     GoRoute(
       path: '/budgets',
@@ -222,7 +229,20 @@ final appRouter = GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final id = state.pathParameters['id'] ?? '';
-        return SettlementDetailsScreen(settlementId: id); // Screen 19
+        final extra = state.extra as Map<String, dynamic>?;
+        final fromName = extra?['fromName'] ?? state.uri.queryParameters['from'] ?? 'Member';
+        final toName = extra?['toName'] ?? state.uri.queryParameters['to'] ?? 'Member';
+        final amountPaise = (extra?['amountPaise'] as num?)?.toInt() ??
+            int.tryParse(state.uri.queryParameters['amount'] ?? '') ??
+            0;
+        final tripId = extra?['tripId'] ?? state.uri.queryParameters['tripId'] ?? '';
+        return SettlementDetailsScreen(
+          settlementId: id,
+          fromName: fromName,
+          toName: toName,
+          amountPaise: amountPaise,
+          tripId: tripId,
+        );
       },
     ),
     GoRoute(

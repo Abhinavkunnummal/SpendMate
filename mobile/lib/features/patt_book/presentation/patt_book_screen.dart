@@ -9,7 +9,7 @@ import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/delete_confirmation_dialog.dart';
 
-/// Dedicated Patt Book (കടം / പറ്റ് ബുക്ക് / IOU Ledger) Screen.
+/// Dedicated Patt Book (Friend Debts & IOU Ledger) Screen.
 /// Manages debts, lendings, and borrowings with friends.
 /// Strictly separated from personal bank balances and monthly expense calculations.
 class PattBookScreen extends StatefulWidget {
@@ -75,7 +75,7 @@ class _PattBookScreenState extends State<PattBookScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        isEditing ? 'Edit Patt Entry' : 'Add Patt / Kadam Entry',
+                        isEditing ? 'Edit Friend Entry' : 'Add Friend Debt Entry',
                         style: AppTypography.titleLarge(primaryTextColor).copyWith(fontSize: 18),
                       ),
                       IconButton(
@@ -118,7 +118,7 @@ class _PattBookScreenState extends State<PattBookScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'കിട്ടാനുള്ളത്',
+                                  'To Receive',
                                   style: TextStyle(
                                     color: youGave ? Colors.white70 : secondaryTextColor,
                                     fontSize: 11,
@@ -159,7 +159,7 @@ class _PattBookScreenState extends State<PattBookScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'കൊടുക്കാനുള്ളത്',
+                                  'To Pay',
                                   style: TextStyle(
                                     color: !youGave ? Colors.white70 : secondaryTextColor,
                                     fontSize: 11,
@@ -361,9 +361,9 @@ class _PattBookScreenState extends State<PattBookScreen> {
                           Text(friendName, style: AppTypography.titleLarge(primaryTextColor).copyWith(fontSize: 18)),
                           Text(
                             balancePaise > 0
-                                ? 'You will get ₹${(balancePaise / 100).toStringAsFixed(0)} (കിട്ടാനുള്ളത്)'
+                                ? 'You will get ₹${(balancePaise / 100).toStringAsFixed(0)} (To Receive)'
                                 : (balancePaise < 0
-                                    ? 'You will give ₹${(balancePaise.abs() / 100).toStringAsFixed(0)} (കൊടുക്കാനുള്ളത്)'
+                                    ? 'You will give ₹${(balancePaise.abs() / 100).toStringAsFixed(0)} (To Pay)'
                                     : 'All settled up!'),
                             style: TextStyle(
                               fontSize: 13,
@@ -557,9 +557,9 @@ class _PattBookScreenState extends State<PattBookScreen> {
       ..writeln('------------------------------------');
 
     if (balancePaise > 0) {
-      buffer.writeln('STATUS: You will get ₹${(balancePaise / 100).toStringAsFixed(0)} from $friendName (കിട്ടാനുള്ളത്)');
+      buffer.writeln('STATUS: You will get ₹${(balancePaise / 100).toStringAsFixed(0)} from $friendName (To Receive)');
     } else if (balancePaise < 0) {
-      buffer.writeln('STATUS: You owe ₹${(balancePaise.abs() / 100).toStringAsFixed(0)} to $friendName (കൊടുക്കാനുള്ളത്)');
+      buffer.writeln('STATUS: You owe ₹${(balancePaise.abs() / 100).toStringAsFixed(0)} to $friendName (To Pay)');
     } else {
       buffer.writeln('STATUS: Fully Settled up (₹0 balance)');
     }
@@ -592,7 +592,7 @@ class _PattBookScreenState extends State<PattBookScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Patt Book (കടം / പറ്റ് ബുക്ക്)'),
+        title: const Text('Patt Book (Friend Ledger)'),
         actions: [
           IconButton(
             tooltip: 'Add Entry',
@@ -687,7 +687,7 @@ class _PattBookScreenState extends State<PattBookScreen> {
                       // Two-Column Grid: You Will Get vs You Will Give
                       Row(
                         children: [
-                          // You Will Get (കിട്ടാനുള്ളത്)
+                          // You Will Get (To Receive)
                           Expanded(
                             child: Container(
                               padding: const EdgeInsets.all(12),
@@ -714,7 +714,7 @@ class _PattBookScreenState extends State<PattBookScreen> {
                                     ],
                                   ),
                                   const SizedBox(height: 2),
-                                  const Text('കിട്ടാനുള്ളത്', style: TextStyle(color: Colors.white60, fontSize: 10)),
+                                  const Text('To Receive', style: TextStyle(color: Colors.white60, fontSize: 10)),
                                   const SizedBox(height: 4),
                                   Text(
                                     '₹${(youWillGet / 100).toStringAsFixed(0)}',
@@ -728,7 +728,7 @@ class _PattBookScreenState extends State<PattBookScreen> {
                           ),
                           const SizedBox(width: 12),
 
-                          // You Will Give (കൊടുക്കാനുള്ളത്)
+                          // You Will Give (To Pay)
                           Expanded(
                             child: Container(
                               padding: const EdgeInsets.all(12),
@@ -755,7 +755,7 @@ class _PattBookScreenState extends State<PattBookScreen> {
                                     ],
                                   ),
                                   const SizedBox(height: 2),
-                                  const Text('കൊടുക്കാനുള്ളത്', style: TextStyle(color: Colors.white60, fontSize: 10)),
+                                  const Text('To Pay', style: TextStyle(color: Colors.white60, fontSize: 10)),
                                   const SizedBox(height: 4),
                                   Text(
                                     '₹${(youWillGive / 100).toStringAsFixed(0)}',
@@ -803,15 +803,18 @@ class _PattBookScreenState extends State<PattBookScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Filter Chips
-                Row(
-                  children: [
-                    _filterChip('All Friends (${friends.length})', 0, isDark, primaryTextColor, secondaryTextColor),
-                    const SizedBox(width: 8),
-                    _filterChip('You Will Get', 1, isDark, primaryTextColor, secondaryTextColor),
-                    const SizedBox(width: 8),
-                    _filterChip('You Will Give', 2, isDark, primaryTextColor, secondaryTextColor),
-                  ],
+                // Filter Chips (Wrapped horizontally to prevent 52px overflow)
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _filterChip('All Friends (${friends.length})', 0, isDark, primaryTextColor, secondaryTextColor),
+                      const SizedBox(width: 8),
+                      _filterChip('You Will Get', 1, isDark, primaryTextColor, secondaryTextColor),
+                      const SizedBox(width: 8),
+                      _filterChip('You Will Give', 2, isDark, primaryTextColor, secondaryTextColor),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 18),
 
@@ -918,7 +921,7 @@ class _PattBookScreenState extends State<PattBookScreen> {
 
                 // Add Entry Button
                 AppButton(
-                  text: '+ Add New Patt / Kadam Entry',
+                  text: '+ Add New Patt Book Entry',
                   onPressed: () => _showAddEditEntrySheet(context),
                 ),
                 const SizedBox(height: 24),

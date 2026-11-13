@@ -160,8 +160,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ..writeln('  Allocated Budget Cap:  ₹${(repo.monthlyBudgetCapPaise / 100).toStringAsFixed(0)}')
       ..writeln('----------------------------------------')
       ..writeln('PATT BOOK (FRIENDS LEDGER):')
-      ..writeln('  You Will Get (കിട്ടാനുള്ളത്):  ₹${(repo.totalYouWillGetPaise / 100).toStringAsFixed(0)}')
-      ..writeln('  You Will Give (കൊടുക്കാനുള്ളത്): ₹${(repo.totalYouWillGivePaise / 100).toStringAsFixed(0)}')
+      ..writeln('  You Will Get (To Receive): ₹${(repo.totalYouWillGetPaise / 100).toStringAsFixed(0)}')
+      ..writeln('  You Will Give (To Pay):    ₹${(repo.totalYouWillGivePaise / 100).toStringAsFixed(0)}')
       ..writeln('----------------------------------------')
       ..writeln('TRANSACTIONS HISTORY (${txs.length}):');
 

@@ -150,6 +150,36 @@ class _WalletsScreenState extends State<WalletsScreen> {
                           ],
                         ),
                       ),
+                      if (emis.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white.withOpacity(0.15)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.timer_outlined, size: 16, color: Colors.amberAccent),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Active EMI Commitments (${emis.length})',
+                                    style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                '₹${(repo.totalMonthlyEMIPaise / 100).toStringAsFixed(0)} / mo',
+                                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

@@ -26,7 +26,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   String _selectedWallet = 'Primary Bank Account';
   bool _isLoading = false;
 
-  final String _pattOptionName = 'Friend / Patt Book (പറ്റ് ബുക്ക്)';
+  final String _pattOptionName = 'Friend / Patt Book (IOU Ledger)';
 
   final List<Map<String, dynamic>> _categories = [
     {'name': 'Food & Dining', 'icon': Icons.restaurant_rounded, 'color': AppColors.coral},
@@ -494,7 +494,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 text: _isLoading
                     ? 'Saving...'
                     : (isPattSelected
-                        ? 'Save to Patt Book (കടം)'
+                        ? 'Save to Patt Book (Friend Ledger)'
                         : (_isExpense ? 'Save Expense' : 'Save Income')),
                 icon: const Icon(Icons.check_rounded, color: Colors.white, size: 20),
                 onPressed: _isLoading ? () {} : _handleSave,

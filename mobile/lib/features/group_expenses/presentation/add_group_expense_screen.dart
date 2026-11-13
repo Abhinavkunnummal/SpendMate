@@ -7,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_button.dart';
+import '../../../core/widgets/quick_calculator_sheet.dart';
 
 class AddGroupExpenseScreen extends StatefulWidget {
   final String tripId;
@@ -172,6 +173,24 @@ class _AddGroupExpenseScreenState extends State<AddGroupExpenseScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Trip Expense'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.calculate_outlined),
+            tooltip: 'Fast Calculator',
+            onPressed: () async {
+              final currentVal = double.tryParse(_amountController.text.trim()) ?? 0;
+              final result = await QuickCalculatorSheet.show(context, initialValue: currentVal);
+              if (result != null) {
+                setState(() {
+                  _amountController.text = result.toStringAsFixed(0);
+                  if (!_isMultiPayer && _payerControllers.containsKey(_singlePayer)) {
+                    _payerControllers[_singlePayer]!.text = result.toStringAsFixed(0);
+                  }
+                });
+              }
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
@@ -212,6 +231,23 @@ class _AddGroupExpenseScreenState extends State<AddGroupExpenseScreen> {
                             filled: false,
                           ),
                         ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.calculate_rounded, color: AppColors.primary, size: 26),
+                        tooltip: 'Calculate Expense',
+                        onPressed: () async {
+                          final currentVal = double.tryParse(_amountController.text.trim()) ?? 0;
+                          final result = await QuickCalculatorSheet.show(context, initialValue: currentVal);
+                          if (result != null) {
+                            setState(() {
+                              _amountController.text = result.toStringAsFixed(0);
+                              if (!_isMultiPayer && _payerControllers.containsKey(_singlePayer)) {
+                                _payerControllers[_singlePayer]!.text = result.toStringAsFixed(0);
+                              }
+                            });
+                          }
+                        },
                       ),
                     ],
                   ),

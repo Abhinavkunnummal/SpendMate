@@ -5,6 +5,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/auth/auth_session_manager.dart';
 import '../../../core/services/app_sound_service.dart';
+import 'widgets/google_sign_in_sheet.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -152,20 +153,7 @@ class WelcomeScreen extends StatelessWidget {
                 width: double.infinity,
                 height: 50,
                 child: OutlinedButton(
-                  onPressed: () async {
-                    AppSoundService.playIncomeChime();
-                    const email = 'abhinavdev810@gmail.com';
-                    const name = 'Abhinav Dev';
-                    await AuthSessionManager.instance.loginSuccess(
-                      token: 'google_oauth_token_${DateTime.now().millisecondsSinceEpoch}',
-                      refreshToken: 'google_refresh_${DateTime.now().millisecondsSinceEpoch}',
-                      userId: 'usr_google_abhinavdev',
-                      userName: name,
-                      phoneNumber: email,
-                      firebaseUid: 'firebase_uid_${email.hashCode.abs()}',
-                    );
-                    if (context.mounted) context.go('/dashboard');
-                  },
+                  onPressed: () => GoogleSignInSheet.show(context),
                   style: OutlinedButton.styleFrom(
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     side: BorderSide(color: isDark ? AppColors.borderDark : Colors.grey.shade300),

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import '../../../core/auth/auth_session_manager.dart';
+import '../../../core/services/app_sound_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
@@ -9,7 +12,19 @@ import '../../../core/widgets/status_badge.dart';
 
 class SettlementDetailsScreen extends StatefulWidget {
   final String settlementId;
-  const SettlementDetailsScreen({super.key, required this.settlementId});
+  final String fromName;
+  final String toName;
+  final int amountPaise;
+  final String tripId;
+
+  const SettlementDetailsScreen({
+    super.key,
+    required this.settlementId,
+    this.fromName = 'Payer',
+    this.toName = 'Receiver',
+    this.amountPaise = 0,
+    this.tripId = '',
+  });
 
   @override
   State<SettlementDetailsScreen> createState() => _SettlementDetailsScreenState();
@@ -18,15 +33,78 @@ class SettlementDetailsScreen extends StatefulWidget {
 class _SettlementDetailsScreenState extends State<SettlementDetailsScreen> {
   bool _isSettled = false;
 
+  String _initials(String name) {
+    final parts = name.trim().split(' ').where((s) => s.isNotEmpty).toList();
+    if (parts.isEmpty) return 'M';
+    if (parts.length == 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  String get _receiverUpiId {
+    final clean = widget.toName
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]'), '')
+        .trim();
+    return clean.isEmpty ? 'spendmate@upi' : '$clean@upi';
+  }
+
+  void _copyUpi() {
+    Clipboard.setData(ClipboardData(text: _receiverUpiId));
+    AppSoundService.playChime();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('UPI ID "$_receiverUpiId" copied to clipboard!'),
+        backgroundColor: AppColors.primary,
+      ),
+    );
+  }
+
+  void _shareSlip() {
+    AppSoundService.playSuccess();
+    final amountFormatted = (widget.amountPaise / 100).toStringAsFixed(2);
+    final slip = StringBuffer()
+      ..writeln('====================================')
+      ..writeln('   SPENDMATE TRIP SETTLEMENT SLIP   ')
+      ..writeln('====================================')
+      ..writeln('From: ${widget.fromName}')
+      ..writeln('To:   ${widget.toName}')
+      ..writeln('Amount: ₹$amountFormatted')
+      ..writeln('Status: ${_isSettled ? "Settled & Verified ✅" : "Pending ⏳"}')
+      ..writeln('Receiver UPI: $_receiverUpiId')
+      ..writeln('Date: ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}')
+      ..writeln('------------------------------------')
+      ..writeln('Settled with SpendMate')
+      ..writeln('====================================');
+
+    Clipboard.setData(ClipboardData(text: slip.toString()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Settlement slip copied! Paste in WhatsApp to share with members.'),
+        backgroundColor: AppColors.primary,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryTextColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
     final secondaryTextColor = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
 
+    final myName = AuthSessionManager.instance.displayName;
+    final isReceiverMe = widget.toName.toLowerCase().contains(myName.toLowerCase()) ||
+        widget.toName.toLowerCase().contains('you');
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settlement Details'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share_rounded),
+            tooltip: 'Share Settlement Slip',
+            onPressed: _shareSlip,
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
@@ -37,30 +115,37 @@ class _SettlementDetailsScreenState extends State<SettlementDetailsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const CircleAvatar(
-                  radius: 26,
-                  backgroundColor: AppColors.coralLight,
-                  child: Text('RM', style: TextStyle(color: AppColors.coral, fontWeight: FontWeight.w700)),
-                ),
-                const SizedBox(width: 14),
-                const Icon(Icons.arrow_forward_rounded, color: AppColors.primary, size: 24),
-                const SizedBox(width: 14),
                 CircleAvatar(
-                  radius: 26,
+                  radius: 28,
+                  backgroundColor: AppColors.coralLight,
+                  child: Text(
+                    _initials(widget.fromName),
+                    style: const TextStyle(color: AppColors.coral, fontWeight: FontWeight.w700, fontSize: 16),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                const Icon(Icons.arrow_forward_rounded, color: AppColors.primary, size: 26),
+                const SizedBox(width: 16),
+                CircleAvatar(
+                  radius: 28,
                   backgroundColor: AppColors.primaryLight,
-                  child: Text(AuthSessionManager.instance.userInitials, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
+                  child: Text(
+                    _initials(widget.toName),
+                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 16),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
 
             Text(
-              'Rohan Mehra pays ${AuthSessionManager.instance.displayName}',
+              '${widget.fromName} pays ${widget.toName}',
               style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 16),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            const CurrencyText(
-              amountPaise: 48000,
+            CurrencyText(
+              amountPaise: widget.amountPaise,
               fontSize: 34,
               fontWeight: FontWeight.w700,
             ),
@@ -85,23 +170,34 @@ class _SettlementDetailsScreenState extends State<SettlementDetailsScreen> {
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
                     ),
-                    child: const Center(
-                      child: Icon(Icons.qr_code_2_rounded, size: 100, color: AppColors.primary),
+                    child: Center(
+                      child: Icon(Icons.qr_code_2_rounded, size: 100, color: AppColors.primary.withOpacity(0.9)),
                     ),
                   ),
                   const SizedBox(height: 14),
-                  Text('${AuthSessionManager.instance.displayName} UPI ID', style: AppTypography.bodySmall(secondaryTextColor)),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        '${AuthSessionManager.instance.userName?.toLowerCase().replaceAll(' ', '') ?? 'user'}@okhdfcbank',
-                        style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 15),
+                  Text('${widget.toName} UPI ID', style: AppTypography.bodySmall(secondaryTextColor)),
+                  const SizedBox(height: 6),
+                  GestureDetector(
+                    onTap: _copyUpi,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
                       ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.copy_rounded, size: 16, color: AppColors.primary),
-                    ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _receiverUpiId,
+                            style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 14),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.copy_rounded, size: 16, color: AppColors.primary),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -110,19 +206,27 @@ class _SettlementDetailsScreenState extends State<SettlementDetailsScreen> {
 
             // Action Buttons
             AppButton(
-              text: 'Pay via Google Pay / PhonePe',
-              icon: const Icon(Icons.open_in_new_rounded, size: 18),
-              onPressed: () {},
+              text: 'Copy Payment Link & UPI ID',
+              icon: const Icon(Icons.content_copy_rounded, size: 18),
+              onPressed: _copyUpi,
             ),
             const SizedBox(height: 12),
 
             AppButton(
-              text: _isSettled ? 'Payment Completed' : 'Mark as Received & Settled',
+              text: _isSettled
+                  ? 'Payment Completed ✅'
+                  : (isReceiverMe ? 'Mark as Received & Settled' : 'Mark as Paid & Settled'),
               variant: ButtonVariant.outline,
               onPressed: () {
+                AppSoundService.playSuccess();
                 setState(() => _isSettled = true);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Settlement marked as completed and verified!')),
+                  SnackBar(
+                    content: Text(
+                      'Settlement between ${widget.fromName} and ${widget.toName} marked as completed!',
+                    ),
+                    backgroundColor: AppColors.primary,
+                  ),
                 );
               },
             ),

@@ -7,6 +7,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/auth/auth_session_manager.dart';
 import '../../../core/services/app_sound_service.dart';
+import 'widgets/google_sign_in_sheet.dart';
 
 class PhoneLoginScreen extends StatefulWidget {
   const PhoneLoginScreen({super.key});
@@ -99,32 +100,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
   }
 
   void _handleGoogleSignIn() async {
-    setState(() => _isLoading = true);
-    AppSoundService.playIncomeChime();
-
-    const email = 'abhinavdev810@gmail.com';
-    const name = 'Abhinav Dev';
-
-    await AuthSessionManager.instance.loginSuccess(
-      token: 'google_oauth_token_${DateTime.now().millisecondsSinceEpoch}',
-      refreshToken: 'google_refresh_${DateTime.now().millisecondsSinceEpoch}',
-      userId: 'usr_google_abhinavdev',
-      userName: name,
-      phoneNumber: email,
-      firebaseUid: 'firebase_uid_${email.hashCode.abs()}',
-    );
-
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Signed in with Google as $name ($email)! Session saved.'),
-        backgroundColor: AppColors.primary,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-    context.go('/dashboard');
+    await GoogleSignInSheet.show(context);
   }
 
   void _startTimer() {

@@ -197,14 +197,14 @@ class TripModelItem {
   );
 }
 
-/// Patt Book (കടം / പറ്റ് ബുക്ക് / Khata) Entry Model
+/// Patt Book (Friend Debts & IOU Ledger) Entry Model
 /// Strictly kept separate from personal net worth and wallet balances.
 class PattEntryItem {
   final String id;
   final String friendName;
   final String? friendPhone;
   int amountPaise;
-  bool youGave; // true: You gave (കിട്ടാനുള്ളത് / Lent), false: You took (കൊടുക്കാനുള്ളത് / Borrowed)
+  bool youGave; // true: You gave (To Receive / Lent), false: You took (To Pay / Borrowed)
   String note;
   DateTime date;
   bool isSettled;
@@ -347,18 +347,25 @@ class AppDataRepository extends ChangeNotifier {
   bool get isBudgetCapExceeded => totalSpentThisMonthPaise > _monthlyBudgetCapPaise;
   int get budgetRemainingPaise => _monthlyBudgetCapPaise - totalSpentThisMonthPaise;
 
+  /// Total active EMI monthly installment commitment
+  int get totalMonthlyEMIPaise => _emis.fold(0, (sum, e) => sum + e.monthlyAmountPaise);
+
+  /// Total remaining EMI obligations
+  int get totalRemainingEMIObligationPaise =>
+      _emis.fold(0, (sum, e) => sum + (e.monthlyAmountPaise * e.remainingMonths));
+
   // -------------------------------------------------------------
-  // PATT BOOK (കടം / പറ്റ് ബുക്ക്) GETTERS (SEPARATE TOTALS!)
+  // PATT BOOK (FRIEND LEDGER) GETTERS (SEPARATE TOTALS!)
   // -------------------------------------------------------------
 
-  /// Total money you will get back from friends (കിട്ടാനുള്ളത് / Lent)
+  /// Total money you will get back from friends (To Receive / Lent)
   int get totalYouWillGetPaise {
     return _pattEntries
         .where((p) => !p.isSettled && p.youGave)
         .fold(0, (sum, p) => sum + p.amountPaise);
   }
 
-  /// Total money you need to give to friends (കൊടുക്കാനുള്ളത് / Borrowed)
+  /// Total money you need to give to friends (To Pay / Borrowed)
   int get totalYouWillGivePaise {
     return _pattEntries
         .where((p) => !p.isSettled && !p.youGave)
@@ -1012,7 +1019,7 @@ class AppDataRepository extends ChangeNotifier {
   }
 
   // -------------------------------------------------------------
-  // PATT BOOK (കടം / പറ്റ് ബുക്ക്) CRUD
+  // PATT BOOK (FRIEND LEDGER) CRUD
   // -------------------------------------------------------------
 
   Future<void> addPattEntry({
