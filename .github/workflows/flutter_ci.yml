@@ -57,7 +57,7 @@ jobs:
       - name: Run Unit & Widget Tests
         run: |
           flutter test 2>&1 | tee test_out.log || true
-          FAIL_INFO=$(grep -A 5 -E 'FAILED:|══╡ EXCEPTION' test_out.log | tr '\n' ' ' | cut -c 1-500 || true)
+          FAIL_INFO=$(grep -B 1 -A 8 -E 'Expected:|══╡ EXCEPTION' test_out.log | tr '\n' ' ' | cut -c 1-500 || true)
           if [ -n "$FAIL_INFO" ]; then
             echo "::error title=TestException::$FAIL_INFO"
           fi

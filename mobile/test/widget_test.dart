@@ -5,13 +5,14 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  setUp(() {
+  setUp(() async {
     FlutterSecureStorage.setMockInitialValues({});
     SharedPreferences.setMockInitialValues({});
+    await AuthSessionManager.instance.logout();
+    await AuthSessionManager.instance.initialize();
   });
 
   testWidgets('SpendMate App boots and shows Welcome Branding', (WidgetTester tester) async {
-    await AuthSessionManager.instance.initialize();
     await tester.pumpWidget(const ProviderScope(child: SpendMateApp()));
     await tester.pumpAndSettle();
 

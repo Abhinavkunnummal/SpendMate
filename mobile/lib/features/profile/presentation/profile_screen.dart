@@ -195,7 +195,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
-              maxHeight: 220,
+              constraints: const BoxConstraints(maxHeight: 220),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.grey.shade100,
