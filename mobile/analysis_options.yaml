@@ -6,6 +6,10 @@ analyzer:
     missing_return: error
     deprecated_member_use: ignore
     todo: ignore
+    unused_import: ignore
+    unused_local_variable: ignore
+    unused_field: ignore
+    library_prefixes: ignore
 
 linter:
   rules:

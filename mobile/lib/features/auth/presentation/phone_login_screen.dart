@@ -5,10 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
-import '../../../core/widgets/app_card.dart';
 import '../../../core/auth/auth_session_manager.dart';
-import '../../../core/network/api_client.dart';
-import '../../../core/constants/api_constants.dart';
 import '../../../core/services/app_sound_service.dart';
 
 class PhoneLoginScreen extends StatefulWidget {

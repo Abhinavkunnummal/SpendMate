@@ -7,7 +7,6 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_card.dart';
-import '../../../core/widgets/status_badge.dart';
 import '../../../core/widgets/delete_confirmation_dialog.dart';
 import '../../../core/services/app_sound_service.dart';
 
