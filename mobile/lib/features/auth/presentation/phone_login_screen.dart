@@ -15,7 +15,7 @@ class PhoneLoginScreen extends StatefulWidget {
 }
 
 class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
-  final _phoneController = TextEditingController();
+  final _phoneController = TextEditingController(text: '9876543210');
   final List<TextEditingController> _otpControllers =
       List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
@@ -60,7 +60,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
     }
 
     setState(() => _isLoading = true);
-    Future.delayed(const Duration(milliseconds: 600), () {
+    Future.delayed(const Duration(milliseconds: 400), () {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
@@ -68,7 +68,23 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
       });
       _startTimer();
       _focusNodes[0].requestFocus();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('💡 Demo Verification Code is: 123456'),
+          backgroundColor: AppColors.primary,
+          duration: Duration(seconds: 5),
+        ),
+      );
     });
+  }
+
+  void _autoFillOtp() {
+    const code = '123456';
+    for (int i = 0; i < 6; i++) {
+      _otpControllers[i].text = code[i];
+    }
+    setState(() {});
   }
 
   void _handleVerifyOtp() {
@@ -81,10 +97,9 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
     }
 
     setState(() => _isLoading = true);
-    Future.delayed(const Duration(milliseconds: 700), () {
+    Future.delayed(const Duration(milliseconds: 500), () {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      // Navigate to profile setup or home dashboard
       context.go('/profile-setup');
     });
   }
@@ -125,7 +140,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                     : 'We will send a 6-digit verification code to secure your SpendMate account.',
                 style: AppTypography.bodyMedium(secondaryTextColor),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
 
               if (!_isOtpSent) ...[
                 // Phone Number Input
@@ -168,6 +183,34 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+
+                // Demo Notice Card
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.surfaceDark : AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline_rounded, color: AppColors.primary, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Demo Mode: No real SMS is needed. Use test code 123456 on the next step.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? AppColors.textPrimaryDark : AppColors.primary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
                 const Spacer(),
                 AppButton(
                   text: 'Continue with Phone',
@@ -175,6 +218,41 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                   onPressed: _handleSendOtp,
                 ),
               ] else ...[
+                // Demo Code Reminder Callout
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.surfaceDark : AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.key_rounded, color: AppColors.primary, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Your test verification code is: 123456',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isDark ? AppColors.textPrimaryDark : AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _autoFillOtp,
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          backgroundColor: AppColors.primary,
+                        ),
+                        child: const Text('Auto-fill', style: TextStyle(color: Colors.white, fontSize: 12)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
                 // 6-digit OTP Box Fields
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
