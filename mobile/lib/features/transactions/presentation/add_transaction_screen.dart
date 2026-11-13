@@ -22,7 +22,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
   String _selectedCategory = 'Food & Dining';
   String _selectedWallet = 'HDFC Salary Account';
-  DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
 
   final List<Map<String, dynamic>> _categories = [

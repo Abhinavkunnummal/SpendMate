@@ -17,7 +17,6 @@ class AddGroupExpenseScreen extends StatefulWidget {
 class _AddGroupExpenseScreenState extends State<AddGroupExpenseScreen> {
   final _amountController = TextEditingController(text: '560');
   final _descriptionController = TextEditingController(text: 'Sightseeing Shuttle Tickets');
-  String _selectedCategory = 'Travel & Trips';
 
   // Multi-Payer State
   bool _isMultiPayer = true;

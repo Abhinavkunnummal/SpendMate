@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spendmate/main.dart';
-import 'package:spendmate/core/theme/app_colors.dart';
 
 void main() {
   testWidgets('SpendMate App boots and shows Welcome Branding', (WidgetTester tester) async {

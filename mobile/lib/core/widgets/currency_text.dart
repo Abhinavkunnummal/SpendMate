@@ -16,7 +16,8 @@ class CurrencyText extends StatelessWidget {
 
   const CurrencyText({
     super.key,
-    required this.amountInPaise,
+    int? amountInPaise,
+    int? amountPaise,
     this.currencySymbol = '₹',
     this.style,
     this.showSign = false,
@@ -25,7 +26,7 @@ class CurrencyText extends StatelessWidget {
     this.fontSize = 16,
     this.fontWeight = FontWeight.w600,
     this.customColor,
-  });
+  }) : amountInPaise = amountInPaise ?? amountPaise ?? 0;
 
   @override
   Widget build(BuildContext context) {

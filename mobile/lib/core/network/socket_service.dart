@@ -1,4 +1,4 @@
-import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:socket_io_client/socket_io_client.dart' as socket_io;
 import '../constants/api_constants.dart';
 import '../storage/secure_storage_service.dart';
 
@@ -6,7 +6,7 @@ class SocketService {
   static final SocketService _instance = SocketService._internal();
   factory SocketService() => _instance;
 
-  IO.Socket? _socket;
+  socket_io.Socket? _socket;
   bool get isConnected => _socket?.connected ?? false;
 
   SocketService._internal();
@@ -15,9 +15,9 @@ class SocketService {
     final token = await SecureStorageService.getToken();
     final userId = await SecureStorageService.getUserId();
 
-    _socket = IO.io(
+    _socket = socket_io.io(
       ApiConstants.socketUrl,
-      IO.OptionBuilder()
+      socket_io.OptionBuilder()
           .setTransports(['websocket'])
           .enableAutoConnect()
           .setAuth({'token': token})
