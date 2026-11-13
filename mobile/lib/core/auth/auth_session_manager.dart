@@ -96,6 +96,9 @@ class AuthSessionManager extends ChangeNotifier {
     _firebaseUid = firebaseUid;
     _isAuthenticated = true;
 
+    _authStateController.add(true);
+    notifyListeners();
+
     await SecureStorageService.saveAuthTokens(
       token: token,
       refreshToken: refreshToken,
@@ -105,11 +108,10 @@ class AuthSessionManager extends ChangeNotifier {
       firebaseUid: firebaseUid,
     );
 
-    // Reload repository data scoped specifically to this user
-    await AppDataRepository.instance.reloadUserData();
-
-    _authStateController.add(true);
-    notifyListeners();
+    try {
+      // Reload repository data scoped specifically to this user
+      await AppDataRepository.instance.reloadUserData();
+    } catch (_) {}
   }
 
   /// Updates profile metadata in memory and encrypted storage.
@@ -122,7 +124,9 @@ class AuthSessionManager extends ChangeNotifier {
   /// Gracefully terminates the user session, wipes encrypted tokens, and routes back to login.
   Future<void> logout() async {
     await SecureStorageService.clearAuth();
-    await AppDataRepository.instance.clearUserData();
+    try {
+      await AppDataRepository.instance.clearUserData();
+    } catch (_) {}
     _token = null;
     _refreshToken = null;
     _userId = null;
