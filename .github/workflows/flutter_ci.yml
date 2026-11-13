@@ -55,15 +55,19 @@ jobs:
         run: flutter analyze --no-fatal-infos || true
 
       - name: Run Unit & Widget Tests
-        run: flutter test || true
+        run: |
+          flutter test 2>&1 | tee test_out.log || true
+          FAILING_TEST=$(grep -E '\[E\]|FAILED|Expected:' test_out.log | head -n 4 || true)
+          if [ -n "$FAILING_TEST" ]; then
+            echo "::warning title=TestFailure::$FAILING_TEST"
+          fi
 
       - name: Build Android APK
         run: |
           flutter build apk --debug 2>&1 | tee build_apk.log
           if [ ! -f "build/app/outputs/flutter-apk/app-debug.apk" ]; then
-            echo "::error::Gradle APK build failed!"
-            echo "========== GRADLE BUILD LOG (LAST 80 LINES) =========="
-            tail -n 80 build_apk.log
+            LAST_LINES=$(tail -n 15 build_apk.log | tr '\n' ' ' | cut -c 1-500)
+            echo "::error title=GradleBuildFailure::$LAST_LINES"
             exit 1
           fi
 
