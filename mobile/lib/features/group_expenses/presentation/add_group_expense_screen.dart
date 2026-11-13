@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_session_manager.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
@@ -20,12 +21,19 @@ class _AddGroupExpenseScreenState extends State<AddGroupExpenseScreen> {
 
   // Multi-Payer State
   bool _isMultiPayer = true;
-  final Map<String, TextEditingController> _payerControllers = {
-    'Aarav Sharma': TextEditingController(text: '400'),
-    'Kunal Verma': TextEditingController(text: '0'),
-    'Rohan Mehra': TextEditingController(text: '160'),
-    'Pooja Nair': TextEditingController(text: '0'),
-  };
+  late final Map<String, TextEditingController> _payerControllers;
+
+  @override
+  void initState() {
+    super.initState();
+    final myName = AuthSessionManager.instance.displayName;
+    _payerControllers = {
+      'Aarav Sharma': TextEditingController(text: '400'),
+      '$myName (You)': TextEditingController(text: '0'),
+      'Rohan Mehra': TextEditingController(text: '160'),
+      'Pooja Nair': TextEditingController(text: '0'),
+    };
+  }
 
   @override
   void dispose() {

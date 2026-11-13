@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_session_manager.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
@@ -25,12 +26,19 @@ class _SplitExpenseScreenState extends State<SplitExpenseScreen> {
     {'name': 'Rohan Mehra', 'paid': 160},
   ];
 
-  final List<Map<String, dynamic>> _participants = [
-    {'name': 'Aarav Sharma', 'selected': true, 'share': 140, 'percent': 25},
-    {'name': 'Kunal Verma', 'selected': true, 'share': 140, 'percent': 25},
-    {'name': 'Rohan Mehra', 'selected': true, 'share': 140, 'percent': 25},
-    {'name': 'Pooja Nair', 'selected': true, 'share': 140, 'percent': 25},
-  ];
+  late final List<Map<String, dynamic>> _participants;
+
+  @override
+  void initState() {
+    super.initState();
+    final myName = AuthSessionManager.instance.displayName;
+    _participants = [
+      {'name': 'Aarav Sharma', 'selected': true, 'share': 140, 'percent': 25},
+      {'name': '$myName (You)', 'selected': true, 'share': 140, 'percent': 25},
+      {'name': 'Rohan Mehra', 'selected': true, 'share': 140, 'percent': 25},
+      {'name': 'Pooja Nair', 'selected': true, 'share': 140, 'percent': 25},
+    ];
+  }
 
   void _recalculateShares() {
     final selectedCount = _participants.where((p) => p['selected'] as bool).length;
@@ -97,20 +105,30 @@ class _SplitExpenseScreenState extends State<SplitExpenseScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: const BoxDecoration(
-                                  color: AppColors.primary,
-                                  shape: BoxShape.circle,
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.primary,
+                                    shape: BoxShape.circle,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(c['name'], style: AppTypography.bodyMedium(primaryTextColor)),
-                            ],
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    c['name'],
+                                    style: AppTypography.bodyMedium(primaryTextColor),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           Text(
                             'Paid ₹${c['paid']}',
                             style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 14),

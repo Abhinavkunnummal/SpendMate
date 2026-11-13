@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/auth/auth_session_manager.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
@@ -13,23 +14,30 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   final _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  final List<Map<String, dynamic>> _messages = [
-    {
-      'isUser': false,
-      'text': "Hello Kunal! I'm your SpendMate AI Financial Advisor. I'm connected to your accounts, active trips, and budgets. How can I assist you today?",
-      'time': '10:00 AM',
-    },
-    {
-      'isUser': true,
-      'text': 'How much did our group spend on the Manali trip so far, and who owes me?',
-      'time': '10:01 AM',
-    },
-    {
-      'isUser': false,
-      'text': "Your group has spent ₹48,200 across 5 shared expenses in Manali. Because of your contributions, your net standing is +₹960 (you are owed money!).\n\n• Rohan owes you ₹480\n• Pooja owes you ₹480\n\nWould you like me to generate a UPI settlement link or send a gentle reminder?",
-      'time': '10:01 AM',
-    },
-  ];
+  late final List<Map<String, dynamic>> _messages;
+
+  @override
+  void initState() {
+    super.initState();
+    final name = AuthSessionManager.instance.displayName;
+    _messages = [
+      {
+        'isUser': false,
+        'text': "Hello $name! I'm your SpendMate AI Financial Advisor. I'm connected to your accounts, active trips, and budgets. How can I assist you today?",
+        'time': '10:00 AM',
+      },
+      {
+        'isUser': true,
+        'text': 'How much did our group spend on the Manali trip so far, and who owes me?',
+        'time': '10:01 AM',
+      },
+      {
+        'isUser': false,
+        'text': "Your group has spent ₹48,200 across 5 shared expenses in Manali. Because of your contributions, your net standing is +₹960 (you are owed money!).\n\n• Rohan owes you ₹480\n• Pooja owes you ₹480\n\nWould you like me to generate a UPI settlement link or send a gentle reminder?",
+        'time': '10:01 AM',
+      },
+    ];
+  }
 
   final List<String> _suggestions = [
     'How much can I spend safely this week?',

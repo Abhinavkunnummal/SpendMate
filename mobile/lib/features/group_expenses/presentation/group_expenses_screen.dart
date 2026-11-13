@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/auth_session_manager.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
@@ -45,14 +46,22 @@ class GroupExpensesScreen extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('TOTAL GROUP EXPENDITURE', style: AppTypography.labelSmall(secondaryTextColor)),
-                      const SizedBox(height: 4),
-                      const CurrencyText(amountPaise: 4820000, fontSize: 24, fontWeight: FontWeight.w700),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'TOTAL GROUP EXPENDITURE',
+                          style: AppTypography.labelSmall(secondaryTextColor),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        const CurrencyText(amountPaise: 4820000, fontSize: 22, fontWeight: FontWeight.w700),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   ElevatedButton(
                     onPressed: () => context.push('/trips/$tripId/balances'),
                     style: ElevatedButton.styleFrom(
@@ -90,7 +99,7 @@ class GroupExpensesScreen extends StatelessWidget {
             _groupExpenseCard(
               title: 'Riverside Pine Cottage Booking',
               amountPaise: 1200000, // ₹12,000.00
-              paidByText: 'Kunal Verma paid ₹12,000',
+              paidByText: '${AuthSessionManager.instance.displayName} paid ₹12,000',
               splitSummary: 'Split equally · ₹3,000 / person (4 people)',
               categoryIcon: Icons.hotel_rounded,
               categoryColor: AppColors.coral,

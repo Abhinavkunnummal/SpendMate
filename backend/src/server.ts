@@ -54,8 +54,8 @@ const startServer = async () => {
   await connectDatabase();
 
   // Listen
-  server.listen(env.port, () => {
-    logger.info(`SpendMate Server running in ${env.nodeEnv} mode on port ${env.port}`);
+  server.listen(env.port, '0.0.0.0', () => {
+    logger.info(`SpendMate Server running in ${env.nodeEnv} mode on http://0.0.0.0:${env.port}`);
     logger.info(`Health check available at http://localhost:${env.port}/api/${env.apiVersion}/health`);
   });
 

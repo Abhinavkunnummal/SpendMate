@@ -4,6 +4,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/currency_text.dart';
+import '../../../core/data/app_data_repository.dart';
+import 'package:intl/intl.dart';
 
 class TransactionsScreen extends StatefulWidget {
   const TransactionsScreen({super.key});
@@ -16,76 +18,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   String _selectedFilter = 'All';
   final _searchController = TextEditingController();
 
-  final List<String> _filters = ['All', 'Expenses', 'Income', 'Transfers'];
-
-  final List<Map<String, dynamic>> _mockTransactions = [
-    {
-      'id': 'tx-101',
-      'title': 'Blue Tokai Coffee Roasters',
-      'category': 'Food & Dining',
-      'wallet': 'HDFC Bank',
-      'amountPaise': 48000,
-      'isExpense': true,
-      'dateGroup': 'Today',
-      'time': '10:30 AM',
-      'icon': Icons.restaurant_rounded,
-    },
-    {
-      'id': 'tx-102',
-      'title': 'Uber Premier Ride',
-      'category': 'Transport',
-      'wallet': 'Google Pay',
-      'amountPaise': 42000,
-      'isExpense': true,
-      'dateGroup': 'Today',
-      'time': '08:45 AM',
-      'icon': Icons.directions_car_filled_rounded,
-    },
-    {
-      'id': 'tx-103',
-      'title': 'Client Milestone Payment',
-      'category': 'Freelance',
-      'wallet': 'HDFC Bank',
-      'amountPaise': 4500000,
-      'isExpense': false,
-      'dateGroup': 'Yesterday',
-      'time': '04:15 PM',
-      'icon': Icons.work_outline_rounded,
-    },
-    {
-      'id': 'tx-104',
-      'title': 'Whole Foods Market',
-      'category': 'Groceries',
-      'wallet': 'ICICI Credit Card',
-      'amountPaise': 235000,
-      'isExpense': true,
-      'dateGroup': 'Yesterday',
-      'time': '12:20 PM',
-      'icon': Icons.shopping_basket_rounded,
-    },
-    {
-      'id': 'tx-105',
-      'title': 'Apple Store Purchase',
-      'category': 'Electronics',
-      'wallet': 'ICICI Credit Card',
-      'amountPaise': 890000,
-      'isExpense': true,
-      'dateGroup': '11 Nov 2026',
-      'time': '02:40 PM',
-      'icon': Icons.shopping_bag_outlined,
-    },
-    {
-      'id': 'tx-106',
-      'title': 'HP Auto Fuel',
-      'category': 'Transport',
-      'wallet': 'Cash',
-      'amountPaise': 250000,
-      'isExpense': true,
-      'dateGroup': '10 Nov 2026',
-      'time': '08:10 PM',
-      'icon': Icons.local_gas_station_rounded,
-    },
-  ];
+  final List<String> _filters = ['All', 'Expenses', 'Income'];
 
   @override
   void dispose() {
@@ -98,18 +31,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryTextColor = isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight;
     final secondaryTextColor = isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight;
-
-    final filteredList = _mockTransactions.where((item) {
-      if (_selectedFilter == 'Expenses' && !item['isExpense']) return false;
-      if (_selectedFilter == 'Income' && item['isExpense']) return false;
-      if (_searchController.text.isNotEmpty) {
-        final query = _searchController.text.toLowerCase();
-        final matchTitle = item['title'].toString().toLowerCase().contains(query);
-        final matchCategory = item['category'].toString().toLowerCase().contains(query);
-        return matchTitle || matchCategory;
-      }
-      return true;
-    }).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -194,75 +115,124 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           ),
           const SizedBox(height: 8),
 
-          // Transactions List
+          // Transactions List (Dynamic Real User Transactions)
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-              itemCount: filteredList.length,
-              itemBuilder: (context, index) {
-                final tx = filteredList[index];
-                final showHeader = index == 0 || tx['dateGroup'] != filteredList[index - 1]['dateGroup'];
+            child: ListenableBuilder(
+              listenable: AppDataRepository.instance,
+              builder: (context, _) {
+                final realList = AppDataRepository.instance.transactions;
+                final filteredList = realList.where((tx) {
+                  if (_selectedFilter == 'Expenses' && !tx.isExpense) return false;
+                  if (_selectedFilter == 'Income' && tx.isExpense) return false;
+                  if (_searchController.text.isNotEmpty) {
+                    final query = _searchController.text.toLowerCase();
+                    return tx.title.toLowerCase().contains(query) ||
+                        tx.category.toLowerCase().contains(query);
+                  }
+                  return true;
+                }).toList();
 
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (showHeader) ...[
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12.0, bottom: 8.0, left: 4.0),
-                        child: Text(
-                          tx['dateGroup'],
-                          style: AppTypography.labelSmall(secondaryTextColor),
-                        ),
-                      ),
-                    ],
-                    AppCard(
-                      onTap: () => context.push('/transactions/${tx['id']}'),
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      child: Row(
+                if (filteredList.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: tx['isExpense'] ? AppColors.coralLight : AppColors.primaryLight,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(
-                              tx['icon'] as IconData,
-                              size: 20,
-                              color: tx['isExpense'] ? AppColors.coral : AppColors.primary,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  tx['title'],
-                                  style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 14),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${tx['category']} · ${tx['wallet']} · ${tx['time']}',
-                                  style: AppTypography.bodySmall(secondaryTextColor),
-                                ),
-                              ],
-                            ),
-                          ),
-                          CurrencyText(
-                            amountPaise: tx['amountPaise'] as int,
-                            isExpense: tx['isExpense'] as bool,
-                            isIncome: !(tx['isExpense'] as bool),
-                            showSign: true,
-                            fontSize: 15,
+                          Icon(Icons.receipt_long_outlined, size: 54, color: secondaryTextColor),
+                          const SizedBox(height: 14),
+                          Text('No transactions found', style: AppTypography.titleMedium(primaryTextColor)),
+                          const SizedBox(height: 6),
+                          Text(
+                            _searchController.text.isNotEmpty
+                                ? 'No results matching "${_searchController.text}"'
+                                : 'Tap "+" above to add your first transaction',
+                            style: AppTypography.bodySmall(secondaryTextColor),
+                            textAlign: TextAlign.center,
                           ),
                         ],
                       ),
                     ),
-                  ],
+                  );
+                }
+
+                final timeFormat = DateFormat('h:mm a');
+                final dateFormat = DateFormat('dd MMM yyyy');
+
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+                  itemCount: filteredList.length,
+                  itemBuilder: (context, index) {
+                    final tx = filteredList[index];
+                    final dateLabel = dateFormat.format(tx.date);
+                    final showHeader = index == 0 ||
+                        dateFormat.format(filteredList[index - 1].date) != dateLabel;
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (showHeader) ...[
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12.0, bottom: 8.0, left: 4.0),
+                            child: Text(
+                              dateLabel,
+                              style: AppTypography.labelSmall(secondaryTextColor),
+                            ),
+                          ),
+                        ],
+                        AppCard(
+                          onTap: () => context.push('/transactions/${tx.id}'),
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: tx.isExpense ? AppColors.coralLight : AppColors.primaryLight,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  tx.icon,
+                                  size: 20,
+                                  color: tx.isExpense ? AppColors.coral : AppColors.primary,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      tx.title,
+                                      style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 14),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${tx.category} · ${tx.wallet} · ${timeFormat.format(tx.date)}',
+                                      style: AppTypography.bodySmall(secondaryTextColor),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              CurrencyText(
+                                amountPaise: tx.amountPaise,
+                                isExpense: tx.isExpense,
+                                isIncome: !tx.isExpense,
+                                showSign: true,
+                                fontSize: 15,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 );
               },
             ),

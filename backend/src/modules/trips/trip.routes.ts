@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { authenticate } from '../../common/middleware/auth';
 import { TripModel } from './trip.model';
+import { UserModel } from '../users/user.model';
 import { ItineraryDayModel } from '../itineraries/itinerary.model';
 import { sendSuccess } from '../../common/response';
 import { NotFoundError, AppError } from '../../common/errors';
@@ -22,6 +23,8 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
 
     // Seed default Manali trip if none exists
     if (trips.length === 0) {
+      const user = await UserModel.findById(userId);
+      const creatorName = user?.name || req.user?.name || user?.phoneNumber || 'Organizer (You)';
       const userObjectId = new mongoose.Types.ObjectId(userId);
       const defaultTrip = await TripModel.create({
         creatorId: userObjectId,
@@ -34,7 +37,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
         totalSpentPaise: 4820000,  // ₹48,200.00
         status: 'active',
         members: [
-          { userId: userObjectId, name: 'Kunal Verma', role: 'admin', joinedAt: new Date() },
+          { userId: userObjectId, name: creatorName, role: 'admin', joinedAt: new Date() },
           { name: 'Aarav Sharma', role: 'member', joinedAt: new Date() },
           { name: 'Rohan Mehra', role: 'member', joinedAt: new Date() },
           { name: 'Pooja Nair', role: 'member', joinedAt: new Date() },
@@ -127,6 +130,58 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     });
 
     sendSuccess(res, { trip }, 'Trip created successfully', 201);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Join an existing trip
+router.post('/:id/join', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user!.userId;
+    const user = await UserModel.findById(userId);
+    const trip = await TripModel.findById(req.params.id);
+    if (!trip) throw new NotFoundError('Trip not found');
+
+    const alreadyJoined = trip.members.some(
+      (m) => m.userId?.toString() === userId || (user?.phoneNumber && m.phoneNumber === user.phoneNumber)
+    );
+
+    if (!alreadyJoined) {
+      trip.members.push({
+        userId: new mongoose.Types.ObjectId(userId),
+        name: user?.name || req.user?.name || user?.phoneNumber || 'New Member',
+        phoneNumber: user?.phoneNumber,
+        role: 'member',
+        joinedAt: new Date(),
+      });
+      await trip.save();
+    }
+
+    sendSuccess(res, { trip }, 'Joined trip successfully');
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Add member by name/phone to trip
+router.post('/:id/members', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { name, phoneNumber } = req.body;
+    if (!name) throw new AppError('Member name is required', 400);
+
+    const trip = await TripModel.findById(req.params.id);
+    if (!trip) throw new NotFoundError('Trip not found');
+
+    trip.members.push({
+      name: name.trim(),
+      phoneNumber: phoneNumber ? phoneNumber.trim() : undefined,
+      role: 'member',
+      joinedAt: new Date(),
+    });
+    await trip.save();
+
+    sendSuccess(res, { trip }, 'Member added to trip successfully');
   } catch (error) {
     next(error);
   }

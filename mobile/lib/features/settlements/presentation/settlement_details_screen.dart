@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/auth/auth_session_manager.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
@@ -47,14 +48,14 @@ class _SettlementDetailsScreenState extends State<SettlementDetailsScreen> {
                 CircleAvatar(
                   radius: 26,
                   backgroundColor: AppColors.primaryLight,
-                  child: Text('KV', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
+                  child: Text(AuthSessionManager.instance.userInitials, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700)),
                 ),
               ],
             ),
             const SizedBox(height: 16),
 
             Text(
-              'Rohan Mehra pays Kunal Verma',
+              'Rohan Mehra pays ${AuthSessionManager.instance.displayName}',
               style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 16),
             ),
             const SizedBox(height: 8),
@@ -89,12 +90,15 @@ class _SettlementDetailsScreenState extends State<SettlementDetailsScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  Text('Kunal Verma UPI ID', style: AppTypography.bodySmall(secondaryTextColor)),
+                  Text('${AuthSessionManager.instance.displayName} UPI ID', style: AppTypography.bodySmall(secondaryTextColor)),
                   const SizedBox(height: 4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('kunal@okhdfcbank', style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 15)),
+                      Text(
+                        '${AuthSessionManager.instance.userName?.toLowerCase().replaceAll(' ', '') ?? 'user'}@okhdfcbank',
+                        style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 15),
+                      ),
                       const SizedBox(width: 8),
                       const Icon(Icons.copy_rounded, size: 16, color: AppColors.primary),
                     ],

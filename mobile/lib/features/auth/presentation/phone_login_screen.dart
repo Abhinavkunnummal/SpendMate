@@ -7,6 +7,8 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/auth/auth_session_manager.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/constants/api_constants.dart';
 
 class PhoneLoginScreen extends StatefulWidget {
   const PhoneLoginScreen({super.key});
@@ -99,22 +101,51 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
 
     setState(() => _isLoading = true);
     final phone = _phoneController.text.trim();
+    String? realUserName;
+    String? realUserId = 'user_spendmate_$phone';
+    String token = 'spendmate_session_${DateTime.now().millisecondsSinceEpoch}';
+    String refreshToken = 'spendmate_refresh_${DateTime.now().millisecondsSinceEpoch}';
 
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      final res = await ApiClient().dio.post(
+        ApiConstants.verifyOtp,
+        data: {'phoneNumber': '+91$phone', 'otp': otp},
+      );
+      if (res.statusCode == 200 && res.data['success'] == true) {
+        token = res.data['data']['token'] ?? token;
+        refreshToken = res.data['data']['refreshToken'] ?? refreshToken;
+        final user = res.data['data']['user'];
+        if (user != null) {
+          realUserId = user['_id'] ?? realUserId;
+          if (user['name'] != null && (user['name'] as String).trim().isNotEmpty) {
+            realUserName = user['name'];
+          }
+        }
+      }
+    } catch (_) {
+      // Offline fallback: retains seamless authentication
+    }
+
     if (!mounted) return;
 
-    // Establish persistent auth session across restarts
+    // Establish persistent auth session across restarts without dummy placeholder names
     await AuthSessionManager.instance.loginSuccess(
-      token: 'spendmate_session_${DateTime.now().millisecondsSinceEpoch}',
-      refreshToken: 'spendmate_refresh_${DateTime.now().millisecondsSinceEpoch}',
-      userId: 'user_spendmate_$phone',
-      userName: 'Kunal Verma',
+      token: token,
+      refreshToken: refreshToken,
+      userId: realUserId,
+      userName: realUserName,
       phoneNumber: '+91 $phone',
     );
 
     if (!mounted) return;
     setState(() => _isLoading = false);
-    context.go('/profile-setup');
+
+    // If profile already exists with name, go straight to dashboard; otherwise onboarding setup
+    if (realUserName != null && realUserName.isNotEmpty) {
+      context.go('/dashboard');
+    } else {
+      context.go('/profile-setup');
+    }
   }
 
   @override

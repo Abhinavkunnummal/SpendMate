@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/currency_text.dart';
+import '../../../core/auth/auth_session_manager.dart';
 
 class BalancesScreen extends StatelessWidget {
   final String tripId;
@@ -79,8 +80,21 @@ class BalancesScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('SUGGESTED PAYMENTS (3)', style: AppTypography.labelSmall(secondaryTextColor)),
-                Text('Debt Minimizer Active', style: AppTypography.labelSmall(AppColors.primary)),
+                Expanded(
+                  child: Text(
+                    'SUGGESTED PAYMENTS (3)',
+                    style: AppTypography.labelSmall(secondaryTextColor),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Debt Minimizer Active',
+                  style: AppTypography.labelSmall(AppColors.primary),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
             const SizedBox(height: 10),
@@ -88,7 +102,7 @@ class BalancesScreen extends StatelessWidget {
             _suggestedPaymentCard(
               context: context,
               fromName: 'Rohan Mehra',
-              toName: 'Kunal Verma (You)',
+              toName: '${AuthSessionManager.instance.userName ?? 'You'} (You)',
               amountPaise: 48000,
               isDark: isDark,
               primaryTextColor: primaryTextColor,
@@ -97,7 +111,7 @@ class BalancesScreen extends StatelessWidget {
             _suggestedPaymentCard(
               context: context,
               fromName: 'Pooja Nair',
-              toName: 'Kunal Verma (You)',
+              toName: '${AuthSessionManager.instance.displayName} (You)',
               amountPaise: 48000,
               isDark: isDark,
               primaryTextColor: primaryTextColor,
@@ -122,7 +136,7 @@ class BalancesScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Column(
                 children: [
-                  _balanceRow('Kunal Verma', 96000, true, primaryTextColor),
+                  _balanceRow('${AuthSessionManager.instance.displayName} (You)', 96000, true, primaryTextColor),
                   const Divider(),
                   _balanceRow('Aarav Sharma', 16000, true, primaryTextColor),
                   const Divider(),

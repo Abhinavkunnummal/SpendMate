@@ -6,6 +6,8 @@ import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/auth/auth_session_manager.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/constants/api_constants.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -15,11 +17,21 @@ class ProfileSetupScreen extends StatefulWidget {
 }
 
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
-  final _nameController = TextEditingController(text: 'Kunal Verma');
-  final _emailController = TextEditingController(text: 'kunal@example.com');
+  late final TextEditingController _nameController;
+  late final TextEditingController _emailController;
   final _budgetController = TextEditingController(text: '50000');
   String _selectedCurrency = 'INR';
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final currentName = AuthSessionManager.instance.userName;
+    _nameController = TextEditingController(
+      text: (currentName != null && currentName != 'Member') ? currentName : '',
+    );
+    _emailController = TextEditingController();
+  }
 
   final List<Map<String, String>> _currencies = [
     {'code': 'INR', 'symbol': '₹', 'label': 'Indian Rupee'},
@@ -47,7 +59,21 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
     setState(() => _isLoading = true);
     await AuthSessionManager.instance.updateUserName(name);
-    await Future.delayed(const Duration(milliseconds: 400));
+
+    try {
+      await ApiClient().dio.post(
+        ApiConstants.profile,
+        data: {
+          'name': name,
+          'email': _emailController.text.trim(),
+          'monthlyBudgetPaise': (int.tryParse(_budgetController.text) ?? 50000) * 100,
+          'currency': _selectedCurrency,
+        },
+      );
+    } catch (_) {
+      // Offline fallback
+    }
+
     if (!mounted) return;
     setState(() => _isLoading = false);
     context.go('/dashboard');
@@ -76,10 +102,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   CircleAvatar(
                     radius: 46,
                     backgroundColor: isDark ? AppColors.surfaceDark : AppColors.primaryLight,
-                    child: Text(
-                      'KV',
-                      style: AppTypography.displayMedium(AppColors.primary),
-                    ),
+                    child: _nameController.text.trim().isNotEmpty
+                        ? Text(
+                            _nameController.text.trim().split(' ').where((s) => s.isNotEmpty).map((s) => s[0]).take(2).join().toUpperCase(),
+                            style: AppTypography.displayMedium(AppColors.primary),
+                          )
+                        : const Icon(Icons.person_rounded, size: 44, color: AppColors.primary),
                   ),
                   Container(
                     padding: const EdgeInsets.all(6),

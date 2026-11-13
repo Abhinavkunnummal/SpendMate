@@ -28,9 +28,23 @@ class AuthSessionManager extends ChangeNotifier {
   String? get token => _token;
   String? get refreshToken => _refreshToken;
   String? get userId => _userId;
-  String? get userName => _userName ?? 'Kunal Verma';
-  String? get phoneNumber => _phoneNumber ?? '+91 98765 43210';
+  String? get userName => _userName;
+  String? get phoneNumber => _phoneNumber;
   String? get firebaseUid => _firebaseUid;
+
+  String get displayName => (_userName != null && _userName!.trim().isNotEmpty)
+      ? _userName!.trim()
+      : (_phoneNumber != null && _phoneNumber!.isNotEmpty ? _phoneNumber! : 'SpendMate User');
+
+  String get userInitials {
+    final name = _userName?.trim();
+    if (name == null || name.isEmpty) return 'SM';
+    final parts = name.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return parts[0].substring(0, parts[0].length >= 2 ? 2 : 1).toUpperCase();
+  }
 
   /// Initializes auth state on app startup by inspecting encrypted local storage.
   /// Preserves existing user session across app restarts without requesting OTP.

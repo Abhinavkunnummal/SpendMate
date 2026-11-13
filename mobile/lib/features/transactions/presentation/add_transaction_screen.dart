@@ -5,6 +5,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_text_field.dart';
+import '../../../core/data/app_data_repository.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final String? initialType;
@@ -56,7 +57,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     super.dispose();
   }
 
-  void _handleSave() {
+  void _handleSave() async {
     final amountText = _amountController.text.trim();
     if (amountText.isEmpty || double.tryParse(amountText) == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -66,11 +67,29 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     }
 
     setState(() => _isLoading = true);
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      context.pop();
-    });
+    final amountPaise = (double.parse(amountText) * 100).toInt();
+    final title = _descriptionController.text.trim().isNotEmpty
+        ? _descriptionController.text.trim()
+        : _selectedCategory;
+
+    await AppDataRepository.instance.addTransaction(
+      title: title,
+      amountPaise: amountPaise,
+      isExpense: _isExpense,
+      category: _selectedCategory,
+      wallet: _selectedWallet,
+    );
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${_isExpense ? 'Expense' : 'Income'} of ₹$amountText added successfully!'),
+        backgroundColor: AppColors.primary,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+    context.pop();
   }
 
   @override

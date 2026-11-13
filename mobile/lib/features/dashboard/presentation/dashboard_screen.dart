@@ -4,6 +4,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/currency_text.dart';
+import '../../../core/auth/auth_session_manager.dart';
+import '../../../core/data/app_data_repository.dart';
+import 'package:intl/intl.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -26,188 +29,224 @@ class DashboardScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top Header: Greeting & Profile Avatar
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                // Top Header: Greeting & Profile Avatar (Dynamic Real User)
+                ListenableBuilder(
+                  listenable: AuthSessionManager.instance,
+                  builder: (context, _) {
+                    final auth = AuthSessionManager.instance;
+                    final displayName = (auth.userName != null && auth.userName!.trim().isNotEmpty)
+                        ? auth.userName!
+                        : 'Friend';
+                    final initials = displayName
+                        .split(' ')
+                        .where((s) => s.isNotEmpty)
+                        .map((s) => s[0].toUpperCase())
+                        .take(2)
+                        .join();
+
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Good morning,',
-                          style: AppTypography.bodySmall(secondaryTextColor),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Good morning,',
+                                style: AppTypography.bodySmall(secondaryTextColor),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                displayName,
+                                style: AppTypography.titleLarge(primaryTextColor),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Kunal Verma',
-                          style: AppTypography.titleLarge(primaryTextColor),
+                        const SizedBox(width: 12),
+                        GestureDetector(
+                          onTap: () => context.push('/profile'),
+                          child: Stack(
+                            alignment: Alignment.topRight,
+                            children: [
+                              CircleAvatar(
+                                radius: 22,
+                                backgroundColor: isDark ? AppColors.surfaceDark : AppColors.primaryLight,
+                                child: Text(
+                                  initials.isNotEmpty ? initials : 'SM',
+                                  style: AppTypography.labelLarge(AppColors.primary),
+                                ),
+                              ),
+                              Container(
+                                width: 10,
+                                height: 10,
+                                decoration: BoxDecoration(
+                                  color: AppColors.coral,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: isDark ? AppColors.backgroundDark : Colors.white,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
-                    ),
-                    GestureDetector(
-                      onTap: () => context.push('/profile'),
-                      child: Stack(
-                        alignment: Alignment.topRight,
-                        children: [
-                          CircleAvatar(
-                            radius: 22,
-                            backgroundColor: isDark ? AppColors.surfaceDark : AppColors.primaryLight,
-                            child: Text(
-                              'KV',
-                              style: AppTypography.labelLarge(AppColors.primary),
-                            ),
-                          ),
-                          Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: AppColors.coral,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: isDark ? AppColors.backgroundDark : Colors.white,
-                                width: 2,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 20),
 
-                // Apple Wallet Style Balance Card
-                Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF16A878), Color(0xFF0D7C57)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withOpacity(0.28),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(22),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'TOTAL NET WORTH',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.85),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.5,
-                            ),
+                // Apple Wallet Style Balance Card (Dynamic Real Balance)
+                ListenableBuilder(
+                  listenable: AppDataRepository.instance,
+                  builder: (context, _) {
+                    final repo = AppDataRepository.instance;
+                    final netWorth = repo.netWorthPaise;
+                    final income = repo.totalIncomePaise;
+                    final spent = repo.totalSpentPaise;
+                    final walletCount = repo.wallets.length;
+                    final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
+                    final compactFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+
+                    return Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF16A878), Color(0xFF0D7C57)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.28),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
                           ),
-                          GestureDetector(
-                            onTap: () => context.push('/wallets'),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(14),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(22),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'TOTAL NET WORTH',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.85),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.5,
+                                ),
                               ),
-                              child: const Row(
-                                children: [
-                                  Text(
-                                    '4 Wallets',
-                                    style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                              GestureDetector(
+                                onTap: () => context.push('/wallets'),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(14),
                                   ),
-                                  SizedBox(width: 4),
-                                  Icon(Icons.chevron_right, size: 14, color: Colors.white),
-                                ],
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        '$walletCount ${walletCount == 1 ? 'Wallet' : 'Wallets'}',
+                                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      const Icon(Icons.chevron_right, size: 14, color: Colors.white),
+                                    ],
+                                  ),
+                                ),
                               ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            currencyFormat.format(netWorth / 100),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 30,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 20),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.2),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(Icons.arrow_downward_rounded, size: 14, color: Colors.white),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text('Income', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 11)),
+                                            Text(compactFormat.format(income / 100), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(width: 1, height: 28, color: Colors.white.withOpacity(0.2)),
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(left: 12.0),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(6),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(0.2),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: const Icon(Icons.arrow_upward_rounded, size: 14, color: Colors.white),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text('Spent', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 11)),
+                                              Text(compactFormat.format(spent / 100), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        '₹1,42,850.00',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 32,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.2),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(Icons.arrow_downward_rounded, size: 14, color: Colors.white),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Income', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 11)),
-                                        const Text('₹1,85,000', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(width: 1, height: 28, color: Colors.white.withOpacity(0.2)),
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 12.0),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.2),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(Icons.arrow_upward_rounded, size: 14, color: Colors.white),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text('Spent', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 11)),
-                                          const Text('₹42,150', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 20),
 
@@ -370,50 +409,52 @@ class DashboardScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
 
-                // Recent Transactions List
-                _transactionItem(
-                  icon: Icons.restaurant_rounded,
-                  title: 'Blue Tokai Coffee Roasters',
-                  category: 'Food & Dining · HDFC Bank',
-                  amountPaise: 48000,
-                  isExpense: true,
-                  time: 'Today, 10:30 AM',
-                  primaryTextColor: primaryTextColor,
-                  secondaryTextColor: secondaryTextColor,
-                  onTap: () => context.push('/transactions/tx-101'),
-                ),
-                _transactionItem(
-                  icon: Icons.work_outline_rounded,
-                  title: 'Client Milestone Payment',
-                  category: 'Freelance · Google Pay',
-                  amountPaise: 4500000,
-                  isExpense: false,
-                  time: 'Yesterday, 4:15 PM',
-                  primaryTextColor: primaryTextColor,
-                  secondaryTextColor: secondaryTextColor,
-                  onTap: () => context.push('/transactions/tx-102'),
-                ),
-                _transactionItem(
-                  icon: Icons.shopping_bag_outlined,
-                  title: 'Apple Store Purchase',
-                  category: 'Electronics · ICICI Credit Card',
-                  amountPaise: 890000,
-                  isExpense: true,
-                  time: '11 Nov, 2:40 PM',
-                  primaryTextColor: primaryTextColor,
-                  secondaryTextColor: secondaryTextColor,
-                  onTap: () => context.push('/transactions/tx-103'),
-                ),
-                _transactionItem(
-                  icon: Icons.local_gas_station_rounded,
-                  title: 'HP Auto Fuel',
-                  category: 'Transport · Cash',
-                  amountPaise: 250000,
-                  isExpense: true,
-                  time: '10 Nov, 8:10 PM',
-                  primaryTextColor: primaryTextColor,
-                  secondaryTextColor: secondaryTextColor,
-                  onTap: () => context.push('/transactions/tx-104'),
+                // Recent Transactions List (Dynamic Real User Transactions)
+                ListenableBuilder(
+                  listenable: AppDataRepository.instance,
+                  builder: (context, _) {
+                    final txs = AppDataRepository.instance.transactions;
+                    if (txs.isEmpty) {
+                      return AppCard(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: Center(
+                          child: Column(
+                            children: [
+                              Icon(Icons.receipt_long_outlined, size: 36, color: secondaryTextColor),
+                              const SizedBox(height: 10),
+                              Text('No transactions yet', style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 15)),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Tap "+ Add Expense" above to record your first spend!',
+                                style: AppTypography.bodySmall(secondaryTextColor),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    final recentTxs = txs.take(5).toList();
+                    final timeFormat = DateFormat('dd MMM, h:mm a');
+
+                    return Column(
+                      children: recentTxs.map((tx) {
+                        return _transactionItem(
+                          icon: tx.icon,
+                          title: tx.title,
+                          category: '${tx.category} · ${tx.wallet}',
+                          amountPaise: tx.amountPaise,
+                          isExpense: tx.isExpense,
+                          time: timeFormat.format(tx.date),
+                          primaryTextColor: primaryTextColor,
+                          secondaryTextColor: secondaryTextColor,
+                          onTap: () => context.push('/transactions/${tx.id}'),
+                        );
+                      }).toList(),
+                    );
+                  },
                 ),
                 const SizedBox(height: 20),
               ],
@@ -508,6 +549,8 @@ class DashboardScreen extends StatelessWidget {
                 Text(
                   '$category · $time',
                   style: AppTypography.bodySmall(secondaryTextColor),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),

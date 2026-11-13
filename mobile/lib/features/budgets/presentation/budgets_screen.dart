@@ -55,17 +55,24 @@ class BudgetsScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('TOTAL MONTHLY SPENDING', style: AppTypography.labelSmall(secondaryTextColor)),
+                      Expanded(
+                        child: Text(
+                          'TOTAL MONTHLY SPENDING',
+                          style: AppTypography.labelSmall(secondaryTextColor),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       const StatusBadge(label: '68% Used', color: AppColors.primary),
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
                     children: [
-                      const CurrencyText(amountPaise: 3400000, fontSize: 28, fontWeight: FontWeight.w700),
-                      const SizedBox(width: 8),
+                      const CurrencyText(amountPaise: 3400000, fontSize: 26, fontWeight: FontWeight.w700),
                       Text('of ₹50,000 target', style: AppTypography.bodyMedium(secondaryTextColor)),
                     ],
                   ),
@@ -224,8 +231,20 @@ class BudgetsScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              CurrencyText(amountPaise: spentPaise, fontSize: 13, fontWeight: FontWeight.w500),
-              Text('limit ₹${(limitPaise / 100).toStringAsFixed(0)}', style: AppTypography.bodySmall(secondaryTextColor)),
+              Expanded(
+                child: CurrencyText(
+                  amountPaise: spentPaise,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'limit ₹${(limitPaise / 100).toStringAsFixed(0)}',
+                style: AppTypography.bodySmall(secondaryTextColor),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
           ),
         ],

@@ -190,8 +190,20 @@ class SavingsScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              CurrencyText(amountPaise: currentPaise, fontSize: 14, fontWeight: FontWeight.w600),
-              Text('Goal: ₹${(targetPaise / 100).toStringAsFixed(0)}', style: AppTypography.bodySmall(secondaryTextColor)),
+              Expanded(
+                child: CurrencyText(
+                  amountPaise: currentPaise,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Goal: ₹${(targetPaise / 100).toStringAsFixed(0)}',
+                style: AppTypography.bodySmall(secondaryTextColor),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
           ),
         ],

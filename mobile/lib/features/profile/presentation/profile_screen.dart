@@ -66,9 +66,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               listenable: AuthSessionManager.instance,
               builder: (context, _) {
                 final auth = AuthSessionManager.instance;
-                final displayName = auth.userName ?? 'Kunal Verma';
-                final displayPhone = auth.phoneNumber ?? '+91 98765 43210';
-                final initials = displayName.split(' ').where((s) => s.isNotEmpty).map((s) => s[0]).take(2).join();
+                final displayName = auth.displayName;
+                final displayPhone = auth.phoneNumber ?? 'No phone linked';
+                final initials = auth.userInitials;
 
                 return AppCard(
                   padding: const EdgeInsets.all(18),
@@ -78,7 +78,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         radius: 32,
                         backgroundColor: isDark ? AppColors.surfaceDark : AppColors.primaryLight,
                         child: Text(
-                          initials.isNotEmpty ? initials : 'SM',
+                          initials,
                           style: AppTypography.titleLarge(AppColors.primary),
                         ),
                       ),
@@ -89,16 +89,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           children: [
                             Text(
                               displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: AppTypography.titleMedium(primaryTextColor),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               displayPhone,
-                              style: AppTypography.bodySmall(secondaryTextColor),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'kunal@example.com',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: AppTypography.bodySmall(secondaryTextColor),
                             ),
                           ],

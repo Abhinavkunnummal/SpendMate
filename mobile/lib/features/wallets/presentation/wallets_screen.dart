@@ -3,6 +3,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/currency_text.dart';
+import '../../../core/data/app_data_repository.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/status_badge.dart';
 
@@ -27,86 +28,77 @@ class WalletsScreen extends StatelessWidget {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Total Liquidity Banner
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.cardDark : Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isDark ? AppColors.borderDark : AppColors.borderLight,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('TOTAL AVAILABLE LIQUIDITY', style: AppTypography.labelSmall(secondaryTextColor)),
-                  const SizedBox(height: 6),
-                  const CurrencyText(
-                    amountPaise: 14285000,
-                    fontSize: 30,
-                    fontWeight: FontWeight.w700,
+        child: ListenableBuilder(
+          listenable: AppDataRepository.instance,
+          builder: (context, _) {
+            final repo = AppDataRepository.instance;
+            final realWallets = repo.wallets;
+            final netLiquidity = repo.netWorthPaise;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Total Liquidity Banner
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.cardDark : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isDark ? AppColors.borderDark : AppColors.borderLight,
+                    ),
                   ),
-                  const SizedBox(height: 6),
-                  Text('Across 4 connected financial accounts', style: AppTypography.bodySmall(secondaryTextColor)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('TOTAL AVAILABLE LIQUIDITY', style: AppTypography.labelSmall(secondaryTextColor)),
+                      const SizedBox(height: 6),
+                      CurrencyText(
+                        amountPaise: netLiquidity,
+                        fontSize: 30,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Across ${realWallets.length} connected financial accounts',
+                        style: AppTypography.bodySmall(secondaryTextColor),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
 
-            // Accounts List
-            Text('ACCOUNTS & CARDS', style: AppTypography.labelSmall(secondaryTextColor)),
-            const SizedBox(height: 10),
+                // Accounts List
+                Text('ACCOUNTS & CARDS', style: AppTypography.labelSmall(secondaryTextColor)),
+                const SizedBox(height: 10),
 
-            _walletCard(
-              name: 'HDFC Salary Account',
-              type: 'Bank Account · 4821',
-              balancePaise: 8540000,
-              icon: Icons.account_balance_rounded,
-              color: AppColors.primary,
-              isDefault: true,
-              isDark: isDark,
-              primaryTextColor: primaryTextColor,
-              secondaryTextColor: secondaryTextColor,
-            ),
-            _walletCard(
-              name: 'Google Pay UPI',
-              type: 'UPI Virtual Payment',
-              balancePaise: 1520000,
-              icon: Icons.qr_code_2_rounded,
-              color: AppColors.blue,
-              isDefault: false,
-              isDark: isDark,
-              primaryTextColor: primaryTextColor,
-              secondaryTextColor: secondaryTextColor,
-            ),
-            _walletCard(
-              name: 'Cash In Hand',
-              type: 'Physical Cash Stash',
-              balancePaise: 450000,
-              icon: Icons.payments_rounded,
-              color: AppColors.orange,
-              isDefault: false,
-              isDark: isDark,
-              primaryTextColor: primaryTextColor,
-              secondaryTextColor: secondaryTextColor,
-            ),
-            _walletCard(
-              name: 'ICICI Platinum Credit Card',
-              type: 'Credit Line · 9012',
-              balancePaise: -1250000,
-              icon: Icons.credit_card_rounded,
-              color: AppColors.coral,
-              isDefault: false,
-              isDark: isDark,
-              primaryTextColor: primaryTextColor,
-              secondaryTextColor: secondaryTextColor,
-            ),
-            const SizedBox(height: 28),
+                ...realWallets.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final w = entry.value;
+                  IconData icon = Icons.account_balance_rounded;
+                  Color color = AppColors.primary;
+                  if (w.type == 'cash') {
+                    icon = Icons.payments_rounded;
+                    color = AppColors.orange;
+                  } else if (w.type == 'card') {
+                    icon = Icons.credit_card_rounded;
+                    color = AppColors.coral;
+                  }
+
+                  return _walletCard(
+                    name: w.name,
+                    type: '${w.type.toUpperCase()} · ${w.accountNumberLast4}',
+                    balancePaise: w.balancePaise,
+                    icon: icon,
+                    color: color,
+                    isDefault: idx == 0,
+                    isDark: isDark,
+                    primaryTextColor: primaryTextColor,
+                    secondaryTextColor: secondaryTextColor,
+                  );
+                }),
+                const SizedBox(height: 28),
 
             AppButton(
               text: 'Connect New Account',
@@ -116,9 +108,11 @@ class WalletsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
           ],
-        ),
-      ),
-    );
+        );
+      },
+    ),
+  ),
+);
   }
 
   Widget _walletCard({
