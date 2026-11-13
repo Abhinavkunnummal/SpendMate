@@ -432,7 +432,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                               onTap: () {
                                 AppSoundService.playIncomeChime();
                                 setState(() {
-                                  _titleController.text = tx.title;
+                                  _descriptionController.text = tx.title;
                                   _amountController.text = (tx.amountPaise / 100).toStringAsFixed(0);
                                 });
                               },
