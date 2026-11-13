@@ -89,7 +89,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
-              maxHeight: 280,
+              constraints: const BoxConstraints(maxHeight: 280),
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: Colors.grey.shade100,

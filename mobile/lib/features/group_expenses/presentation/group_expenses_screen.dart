@@ -287,9 +287,9 @@ class _GroupExpensesScreenState extends State<GroupExpensesScreen> {
                 const SizedBox(height: 24),
               ],
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
