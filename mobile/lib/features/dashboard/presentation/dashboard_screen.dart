@@ -344,16 +344,17 @@ class DashboardScreen extends StatelessWidget {
                                   style: AppTypography.labelSmall(secondaryTextColor).copyWith(fontSize: 10),
                                 ),
                                 const SizedBox(height: 2),
-                                Row(
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 2,
                                   children: [
                                     Text(
                                       'Spend: ₹${(todaySpent / 100).toStringAsFixed(0)}',
-                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.coral),
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.coral),
                                     ),
-                                    const SizedBox(width: 10),
                                     Text(
                                       'Income: ₹${(todayIncome / 100).toStringAsFixed(0)}',
-                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary),
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary),
                                     ),
                                   ],
                                 ),
@@ -420,18 +421,18 @@ class DashboardScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Row(
-                                  children: const [
-                                    Icon(Icons.menu_book_rounded, color: Colors.orange, size: 18),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'Patt Book (Friend Ledger)',
-                                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
-                                    ),
-                                  ],
+                                const Icon(Icons.menu_book_rounded, color: Colors.orange, size: 18),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Text(
+                                    'Patt Book (Friend Ledger)',
+                                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
+                                const SizedBox(width: 8),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
@@ -439,7 +440,7 @@ class DashboardScreen extends StatelessWidget {
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
-                                    '$friendCount Friends · Separate Total',
+                                    '$friendCount Friends',
                                     style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600),
                                   ),
                                 ),
@@ -558,21 +559,26 @@ class DashboardScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    isExceeded ? Icons.warning_amber_rounded : Icons.speed_rounded,
-                                    size: 20,
-                                    color: isExceeded ? AppColors.coral : AppColors.primary,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Monthly Spending Cap Space',
-                                    style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 15),
-                                  ),
-                                ],
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      isExceeded ? Icons.warning_amber_rounded : Icons.speed_rounded,
+                                      size: 20,
+                                      color: isExceeded ? AppColors.coral : AppColors.primary,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Monthly Spending Cap Space',
+                                        style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 15),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                               TextButton(
                                 onPressed: () => _showSetBudgetCapDialog(context),

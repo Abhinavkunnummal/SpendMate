@@ -159,6 +159,7 @@ class TripModelItem {
   final DateTime endDate;
   final List<String> members;
   final List<Map<String, dynamic>> expenses;
+  final List<Map<String, dynamic>> settlements;
 
   TripModelItem({
     required this.id,
@@ -170,6 +171,7 @@ class TripModelItem {
     required this.endDate,
     required this.members,
     this.expenses = const [],
+    this.settlements = const [],
   });
 
   Map<String, dynamic> toJson() => {
@@ -182,6 +184,7 @@ class TripModelItem {
     'endDate': endDate.toIso8601String(),
     'members': members,
     'expenses': expenses,
+    'settlements': settlements,
   };
 
   factory TripModelItem.fromJson(Map<String, dynamic> json) => TripModelItem(
@@ -194,6 +197,7 @@ class TripModelItem {
     endDate: DateTime.tryParse(json['endDate'] ?? '') ?? DateTime.now().add(const Duration(days: 3)),
     members: List<String>.from(json['members'] ?? []),
     expenses: List<Map<String, dynamic>>.from(json['expenses'] ?? []),
+    settlements: List<Map<String, dynamic>>.from(json['settlements'] ?? []),
   );
 }
 
@@ -831,6 +835,7 @@ class AppDataRepository extends ChangeNotifier {
         endDate: endDate,
         members: members ?? trip.members,
         expenses: trip.expenses,
+        settlements: trip.settlements,
       );
       await _saveTrips();
       notifyListeners();
@@ -871,6 +876,7 @@ class AppDataRepository extends ChangeNotifier {
         endDate: trip.endDate,
         members: trip.members,
         expenses: newExpenses,
+        settlements: trip.settlements,
       );
 
       await _saveTrips();
@@ -911,6 +917,7 @@ class AppDataRepository extends ChangeNotifier {
           endDate: trip.endDate,
           members: trip.members,
           expenses: newExpenses,
+          settlements: trip.settlements,
         );
 
         await _saveTrips();
@@ -939,11 +946,75 @@ class AppDataRepository extends ChangeNotifier {
           endDate: trip.endDate,
           members: trip.members,
           expenses: newExpenses,
+          settlements: trip.settlements,
         );
 
         await _saveTrips();
         notifyListeners();
       }
+    }
+  }
+
+  Future<void> recordTripSettlement({
+    required String tripId,
+    required String fromName,
+    required String toName,
+    required int amountPaise,
+    String? method,
+  }) async {
+    final tripIdx = _trips.indexWhere((t) => t.id == tripId);
+    if (tripIdx != -1) {
+      final trip = _trips[tripIdx];
+      final newSettlements = List<Map<String, dynamic>>.from(trip.settlements);
+      newSettlements.add({
+        'id': 'settle_${DateTime.now().millisecondsSinceEpoch}',
+        'from': fromName,
+        'to': toName,
+        'amountPaise': amountPaise,
+        'settledAt': DateTime.now().toIso8601String(),
+        'method': method ?? 'UPI Direct',
+      });
+
+      _trips[tripIdx] = TripModelItem(
+        id: trip.id,
+        name: trip.name,
+        destination: trip.destination,
+        budgetPaise: trip.budgetPaise,
+        spentPaise: trip.spentPaise,
+        startDate: trip.startDate,
+        endDate: trip.endDate,
+        members: trip.members,
+        expenses: trip.expenses,
+        settlements: newSettlements,
+      );
+
+      await _saveTrips();
+      notifyListeners();
+    }
+  }
+
+  Future<void> deleteTripSettlement(String tripId, String settlementId) async {
+    final tripIdx = _trips.indexWhere((t) => t.id == tripId);
+    if (tripIdx != -1) {
+      final trip = _trips[tripIdx];
+      final newSettlements = List<Map<String, dynamic>>.from(trip.settlements)
+        ..removeWhere((s) => s['id'] == settlementId);
+
+      _trips[tripIdx] = TripModelItem(
+        id: trip.id,
+        name: trip.name,
+        destination: trip.destination,
+        budgetPaise: trip.budgetPaise,
+        spentPaise: trip.spentPaise,
+        startDate: trip.startDate,
+        endDate: trip.endDate,
+        members: trip.members,
+        expenses: trip.expenses,
+        settlements: newSettlements,
+      );
+
+      await _saveTrips();
+      notifyListeners();
     }
   }
 

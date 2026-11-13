@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../../core/auth/auth_session_manager.dart';
+import '../../../core/data/app_data_repository.dart';
 import '../../../core/services/app_sound_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -32,6 +33,33 @@ class SettlementDetailsScreen extends StatefulWidget {
 
 class _SettlementDetailsScreenState extends State<SettlementDetailsScreen> {
   bool _isSettled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkExistingSettlement();
+  }
+
+  void _checkExistingSettlement() {
+    try {
+      final trips = AppDataRepository.instance.trips;
+      final trip = trips.cast<TripModelItem?>().firstWhere(
+        (t) => t?.id == widget.tripId,
+        orElse: () => null,
+      );
+      if (trip != null) {
+        final alreadyDone = trip.settlements.any(
+          (s) =>
+              (s['from'] as String?)?.trim().toLowerCase() == widget.fromName.trim().toLowerCase() &&
+              (s['to'] as String?)?.trim().toLowerCase() == widget.toName.trim().toLowerCase() &&
+              ((s['amountPaise'] as num?)?.toInt() ?? 0) == widget.amountPaise,
+        );
+        if (alreadyDone) {
+          _isSettled = true;
+        }
+      }
+    } catch (_) {}
+  }
 
   String _initials(String name) {
     final parts = name.trim().split(' ').where((s) => s.isNotEmpty).toList();
@@ -216,19 +244,32 @@ class _SettlementDetailsScreenState extends State<SettlementDetailsScreen> {
               text: _isSettled
                   ? 'Payment Completed ✅'
                   : (isReceiverMe ? 'Mark as Received & Settled' : 'Mark as Paid & Settled'),
-              variant: ButtonVariant.outline,
-              onPressed: () {
-                AppSoundService.playSuccess();
-                setState(() => _isSettled = true);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Settlement between ${widget.fromName} and ${widget.toName} marked as completed!',
-                    ),
-                    backgroundColor: AppColors.primary,
-                  ),
-                );
-              },
+              variant: _isSettled ? ButtonVariant.secondary : ButtonVariant.outline,
+              onPressed: _isSettled
+                  ? null
+                  : () async {
+                      AppSoundService.playSuccess();
+                      await AppDataRepository.instance.recordTripSettlement(
+                        tripId: widget.tripId,
+                        fromName: widget.fromName,
+                        toName: widget.toName,
+                        amountPaise: widget.amountPaise,
+                      );
+                      if (!mounted) return;
+                      setState(() => _isSettled = true);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Settlement of ₹${(widget.amountPaise / 100).toStringAsFixed(2)} between ${widget.fromName} and ${widget.toName} marked as completed!',
+                          ),
+                          backgroundColor: AppColors.primary,
+                        ),
+                      );
+                      await Future.delayed(const Duration(milliseconds: 600));
+                      if (mounted && Navigator.canPop(context)) {
+                        Navigator.pop(context, true);
+                      }
+                    },
             ),
             const SizedBox(height: 24),
           ],

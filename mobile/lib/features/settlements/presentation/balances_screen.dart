@@ -9,6 +9,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/currency_text.dart';
+import '../../../core/widgets/delete_confirmation_dialog.dart';
 
 class DebtTransfer {
   final String from;
@@ -187,6 +188,19 @@ class BalancesScreen extends StatelessWidget {
           totalTripSpent += amt;
         }
 
+        // Apply completed settlements to paidMap:
+        // Payer (debtor) has satisfied their obligation (+amt contributed)
+        // Receiver (creditor) has received reimbursement (-amt remaining credit)
+        for (var s in trip.settlements) {
+          final sAmt = (s['amountPaise'] as num?)?.toInt() ?? 0;
+          final sFrom = (s['from'] as String?)?.trim() ?? '';
+          final sTo = (s['to'] as String?)?.trim() ?? '';
+          if (sFrom.isNotEmpty && sTo.isNotEmpty && sAmt > 0) {
+            paidMap[sFrom] = (paidMap[sFrom] ?? 0) + sAmt;
+            paidMap[sTo] = (paidMap[sTo] ?? 0) - sAmt;
+          }
+        }
+
         // Calculate equal share
         final sharePerMember = members.isNotEmpty ? (totalTripSpent / members.length).round() : 0;
 
@@ -196,15 +210,23 @@ class BalancesScreen extends StatelessWidget {
           netMap[m] = (paidMap[m] ?? 0) - sharePerMember;
         }
 
-        // User standing
+        // User standing: match current user in members list
         int userNet = 0;
-        final userKey = members.firstWhere(
-          (m) => m.toLowerCase().contains(myName.toLowerCase()) || m.toLowerCase().contains('you'),
-          orElse: () => myName,
+        final matchedMember = members.firstWhere(
+          (m) =>
+              m.toLowerCase().trim() == myName.toLowerCase().trim() ||
+              m.toLowerCase().contains(myName.toLowerCase().trim()) ||
+              myName.toLowerCase().contains(m.toLowerCase().trim()) ||
+              m.toLowerCase().contains('you'),
+          orElse: () => '',
         );
-        userNet = netMap[userKey] ?? 0;
+        final bool userIsInTrip = matchedMember.isNotEmpty;
+        if (userIsInTrip) {
+          userNet = netMap[matchedMember] ?? 0;
+        }
 
         final transfers = _calculateOptimalTransfers(netMap);
+        final int totalPendingPaise = transfers.fold<int>(0, (sum, t) => sum + t.amountPaise);
 
         return Scaffold(
           appBar: AppBar(
@@ -231,62 +253,109 @@ class BalancesScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // User personal standing hero card
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: userNet > 0
-                          ? [const Color(0xFF16A878), const Color(0xFF0F8A62)]
-                          : (userNet < 0
-                              ? [const Color(0xFFEF4444), const Color(0xFFB91C1C)]
-                              : [const Color(0xFF334155), const Color(0xFF1E293B)]),
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: (userNet >= 0 ? AppColors.primary : AppColors.coral).withOpacity(0.25),
-                        blurRadius: 15,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'YOUR NET GROUP STANDING',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.85),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        userNet > 0
+                // User & Group Standing Hero Card
+                // Never prematurely shows "All settled 0" if pending group settlements exist!
+                Builder(
+                  builder: (context) {
+                    final bool hasPendingTransfers = transfers.isNotEmpty;
+                    final bool userHasDirectBalance = userIsInTrip && userNet.abs() > 50;
+
+                    final String heroTitle = userHasDirectBalance
+                        ? 'YOUR NET GROUP STANDING'
+                        : (hasPendingTransfers ? 'GROUP PENDING SETTLEMENTS' : 'GROUP SETTLEMENT STATUS');
+
+                    final String heroAmount = userHasDirectBalance
+                        ? (userNet > 0
                             ? 'You are owed ₹${(userNet / 100).toStringAsFixed(2)}'
-                            : (userNet < 0
-                                ? 'You owe ₹${(userNet.abs() / 100).toStringAsFixed(2)}'
-                                : 'You are all settled up! (₹0.00)'),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.5,
+                            : 'You owe ₹${(userNet.abs() / 100).toStringAsFixed(2)}')
+                        : (hasPendingTransfers
+                            ? '₹${(totalPendingPaise / 100).toStringAsFixed(2)} to Settle'
+                            : 'All Settled Up! (₹0.00)');
+
+                    final String heroSubtitle = userHasDirectBalance
+                        ? (hasPendingTransfers
+                            ? '${transfers.length} pending transfer${transfers.length > 1 ? 's' : ''} in group · Total: ₹${(totalTripSpent / 100).toStringAsFixed(0)}'
+                            : 'All group debts cleared · Equal share: ₹${(sharePerMember / 100).toStringAsFixed(0)}')
+                        : (hasPendingTransfers
+                            ? '${transfers.length} transfer${transfers.length > 1 ? 's' : ''} pending between friends · Your balance: ₹0.00'
+                            : (totalTripSpent == 0
+                                ? 'No expenses recorded yet in this trip'
+                                : 'All members have paid their exact share (₹${(sharePerMember / 100).toStringAsFixed(0)} each)'));
+
+                    final List<Color> gradientColors = userHasDirectBalance
+                        ? (userNet > 0
+                            ? [const Color(0xFF16A878), const Color(0xFF0F8A62)]
+                            : [const Color(0xFFEF4444), const Color(0xFFB91C1C)])
+                        : (hasPendingTransfers
+                            ? [const Color(0xFFD97706), const Color(0xFFB45309)] // Amber when group owes money
+                            : [const Color(0xFF334155), const Color(0xFF1E293B)]); // Slate when fully settled
+
+                    return Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: gradientColors,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: gradientColors.first.withOpacity(0.28),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Total Trip Expense: ₹${(totalTripSpent / 100).toStringAsFixed(0)} · Equal Share: ₹${(sharePerMember / 100).toStringAsFixed(0)}',
-                        style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                heroTitle,
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.85),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              if (hasPendingTransfers)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '${transfers.length} Pending',
+                                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            heroAmount,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            heroSubtitle,
+                            style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 24),
 
@@ -387,6 +456,106 @@ class BalancesScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
+
+                // Completed Settlements Section
+                if (trip.settlements.isNotEmpty) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'COMPLETED SETTLEMENTS (${trip.settlements.length})',
+                        style: AppTypography.labelSmall(secondaryTextColor),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryLight,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'Settled & Verified',
+                          style: AppTypography.labelSmall(AppColors.primary).copyWith(fontSize: 10),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  ...trip.settlements.reversed.map((s) {
+                    final sFrom = s['from'] as String? ?? 'Member';
+                    final sTo = s['to'] as String? ?? 'Member';
+                    final sAmt = (s['amountPaise'] as num?)?.toInt() ?? 0;
+                    final sId = s['id'] as String? ?? '';
+                    final sDate = s['settledAt'] != null
+                        ? DateFormat('dd MMM, hh:mm a').format(DateTime.tryParse(s['settledAt']) ?? DateTime.now())
+                        : 'Recently';
+
+                    return AppCard(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '$sFrom paid $sTo',
+                                  style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 14),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Settled on $sDate',
+                                  style: AppTypography.bodySmall(secondaryTextColor).copyWith(fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              CurrencyText(
+                                amountPaise: sAmt,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                customColor: AppColors.primary,
+                              ),
+                              const SizedBox(height: 2),
+                              GestureDetector(
+                                onTap: () async {
+                                  final confirmed = await DeleteConfirmationDialog.show(
+                                    context,
+                                    title: 'Undo Settlement?',
+                                    message:
+                                        'Remove this settlement record and return ₹${(sAmt / 100).toStringAsFixed(2)} to pending debt?',
+                                    confirmLabel: 'Undo',
+                                  );
+                                  if (confirmed) {
+                                    await AppDataRepository.instance.deleteTripSettlement(trip.id, sId);
+                                    AppSoundService.playSuccess();
+                                  }
+                                },
+                                child: const Text(
+                                  'Undo',
+                                  style: TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 24),
+                ],
               ],
             ),
           ),

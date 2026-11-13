@@ -120,7 +120,7 @@ class _PattBookScreenState extends State<PattBookScreen> {
                             child: Column(
                               children: [
                                 Text(
-                                  'കൊടുത്തു (Lent)',
+                                  'You Gave (Lent)',
                                   style: TextStyle(
                                     color: youGave ? Colors.white : primaryTextColor,
                                     fontWeight: FontWeight.w700,
@@ -129,7 +129,7 @@ class _PattBookScreenState extends State<PattBookScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'കിട്ടാനുള്ളത് (To Receive)',
+                                  'To Receive',
                                   style: TextStyle(
                                     color: youGave ? Colors.white70 : secondaryTextColor,
                                     fontSize: 11,
@@ -173,7 +173,7 @@ class _PattBookScreenState extends State<PattBookScreen> {
                             child: Column(
                               children: [
                                 Text(
-                                  'വാങ്ങി (Borrowed)',
+                                  'You Took (Borrowed)',
                                   style: TextStyle(
                                     color: !youGave ? Colors.white : primaryTextColor,
                                     fontWeight: FontWeight.w700,
@@ -182,7 +182,7 @@ class _PattBookScreenState extends State<PattBookScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'കൊടുക്കാനുള്ളത് (To Pay)',
+                                  'To Pay',
                                   style: TextStyle(
                                     color: !youGave ? Colors.white70 : secondaryTextColor,
                                     fontSize: 11,
