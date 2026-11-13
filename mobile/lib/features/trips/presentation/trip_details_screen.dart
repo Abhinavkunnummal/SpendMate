@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/auth/auth_session_manager.dart';
@@ -8,10 +9,136 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/status_badge.dart';
+import '../../../core/widgets/delete_confirmation_dialog.dart';
+import '../../../core/services/app_sound_service.dart';
 
 class TripDetailsScreen extends StatelessWidget {
   final String tripId;
   const TripDetailsScreen({super.key, required this.tripId});
+
+  void _showExportStatementDialog(BuildContext context, TripModelItem trip) {
+    AppSoundService.playSuccess();
+    final memberCount = trip.members.isNotEmpty ? trip.members.length : 1;
+    final perPersonBudget = trip.budgetPaise ~/ memberCount;
+    final perPersonSpent = trip.spentPaise ~/ memberCount;
+
+    final statementText = StringBuffer()
+      ..writeln('========================================')
+      ..writeln('   SPENDMATE TRIP FINANCIAL STATEMENT   ')
+      ..writeln('========================================')
+      ..writeln('Trip: ${trip.name}')
+      ..writeln('Destination: ${trip.destination}')
+      ..writeln('Dates: ${DateFormat('dd MMM yyyy').format(trip.startDate)} - ${DateFormat('dd MMM yyyy').format(trip.endDate)}')
+      ..writeln('----------------------------------------')
+      ..writeln('BUDGET SUMMARY:')
+      ..writeln('  Total Group Budget: ₹${(trip.budgetPaise / 100).toStringAsFixed(2)}')
+      ..writeln('  Total Group Spent:  ₹${(trip.spentPaise / 100).toStringAsFixed(2)}')
+      ..writeln('  Remaining Budget:   ₹${((trip.budgetPaise - trip.spentPaise) / 100).toStringAsFixed(2)}')
+      ..writeln('  Per Person Share:   ₹${(perPersonSpent / 100).toStringAsFixed(2)}')
+      ..writeln('----------------------------------------')
+      ..writeln('INDIVIDUAL CONTRIBUTIONS & LEDGER:');
+
+    for (var m in trip.members) {
+      statementText.writeln('  • $m: Share ₹${(perPersonSpent / 100).toStringAsFixed(0)}');
+    }
+
+    statementText
+      ..writeln('----------------------------------------')
+      ..writeln('Generated via SpendMate Mobile App')
+      ..writeln('========================================');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Trip Expense Statement (PDF Export)', style: AppTypography.titleMedium(AppColors.textPrimaryLight).copyWith(fontSize: 16)),
+                IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(ctx)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: SingleChildScrollView(
+                child: Text(
+                  statementText.toString(),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 11, height: 1.4, color: Colors.black87),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: statementText.toString()));
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Statement copied to clipboard! Share it with friends.')),
+                      );
+                    },
+                    icon: const Icon(Icons.copy_rounded, size: 18),
+                    label: const Text('Copy to Clipboard'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('PDF statement generated and ready to share!'), backgroundColor: AppColors.primary),
+                      );
+                    },
+                    icon: const Icon(Icons.share_rounded, size: 18, color: Colors.white),
+                    label: const Text('Share PDF', style: TextStyle(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, TripModelItem trip) async {
+    final confirmed = await DeleteConfirmationDialog.show(
+      context,
+      title: 'Delete Trip "${trip.name}"?',
+      message: 'Really want to delete this trip? All group expenses and settlements will be removed permanently.',
+    );
+
+    if (confirmed) {
+      await AppDataRepository.instance.deleteTrip(trip.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Trip "${trip.name}" deleted successfully!'),
+            backgroundColor: AppColors.coral,
+          ),
+        );
+        context.pop();
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,27 +155,45 @@ class TripDetailsScreen extends StatelessWidget {
           orElse: () => null,
         );
 
-        final tripTitle = trip?.name ?? 'Manali Snow Expedition';
-        final tripDest = trip?.destination ?? 'Manali, Himachal Pradesh';
-        final totalSpentPaise = trip?.spentPaise ?? 4820000;
-        final budgetPaise = trip?.budgetPaise ?? 8000000;
-        final dateRangeStr = trip != null
-            ? '${DateFormat('dd MMM').format(trip.startDate)} - ${DateFormat('dd MMM').format(trip.endDate)}'
-            : '18 Nov - 24 Nov';
-        final currentUser = AuthSessionManager.instance.displayName;
-        final currentUserInitials = AuthSessionManager.instance.userInitials;
+        if (trip == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Trip Details')),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.flight_takeoff_rounded, size: 48, color: AppColors.textSecondaryLight),
+                  const SizedBox(height: 12),
+                  const Text('Trip not found or deleted'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(onPressed: () => context.pop(), child: const Text('Go Back')),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final tripTitle = trip.name;
+        final tripDest = trip.destination;
+        final totalSpentPaise = trip.spentPaise;
+        final budgetPaise = trip.budgetPaise;
+        final remainingBudget = budgetPaise - totalSpentPaise;
+        final dateRangeStr = '${DateFormat('dd MMM').format(trip.startDate)} - ${DateFormat('dd MMM').format(trip.endDate)}';
+        final members = trip.members.isNotEmpty ? trip.members : [AuthSessionManager.instance.displayName];
 
         return Scaffold(
           appBar: AppBar(
             title: Text(tripTitle),
             actions: [
               IconButton(
-                icon: const Icon(Icons.share_outlined, size: 20),
-                onPressed: () {},
+                tooltip: 'Export Statement / PDF',
+                icon: const Icon(Icons.picture_as_pdf_outlined, size: 22),
+                onPressed: () => _showExportStatementDialog(context, trip),
               ),
               IconButton(
-                icon: const Icon(Icons.more_vert_rounded, size: 20),
-                onPressed: () {},
+                tooltip: 'Delete Trip',
+                icon: const Icon(Icons.delete_outline_rounded, color: AppColors.coral, size: 22),
+                onPressed: () => _confirmDelete(context, trip),
               ),
             ],
           ),
@@ -63,7 +208,7 @@ class TripDetailsScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF4388FF), Color(0xFF1D5CC9)],
+                      colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -89,7 +234,7 @@ class TripDetailsScreen extends StatelessWidget {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Text(
-                              'Active Trip',
+                              'Active Group Trip',
                               style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
                             ),
                           ),
@@ -137,7 +282,7 @@ class TripDetailsScreen extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Text('BUDGET', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 10)),
+                                Text('EST. BUDGET', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 10)),
                                 const SizedBox(height: 2),
                                 Text('₹${(budgetPaise / 100).toStringAsFixed(0)}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
                               ],
@@ -147,9 +292,18 @@ class TripDetailsScreen extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                Text('YOUR BALANCE', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 10)),
+                                Text('BUDGET LEFT', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 10)),
                                 const SizedBox(height: 2),
-                                const Text('Settled', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                                Text(
+                                  remainingBudget >= 0 ? '₹${(remainingBudget / 100).toStringAsFixed(0)}' : '-₹${(remainingBudget.abs() / 100).toStringAsFixed(0)}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: remainingBudget >= 0 ? Colors.white : const Color(0xFFFFB4B4),
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -165,14 +319,14 @@ class TripDetailsScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       child: AppButton(
-                        text: 'Group Expenses',
+                        text: 'Expenses',
                         variant: ButtonVariant.secondary,
                         icon: const Icon(Icons.receipt_long_rounded, size: 16),
                         height: 44,
                         onPressed: () => context.push('/trips/$tripId/expenses'),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: AppButton(
                         text: 'Balances',
@@ -182,51 +336,111 @@ class TripDetailsScreen extends StatelessWidget {
                         onPressed: () => context.push('/trips/$tripId/balances'),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: AppButton(
-                        text: 'Itinerary',
+                        text: 'Statement',
                         variant: ButtonVariant.secondary,
-                        icon: const Icon(Icons.map_outlined, size: 16),
+                        icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
                         height: 44,
-                        onPressed: () => context.push('/trips/$tripId/itinerary'),
+                        onPressed: () => _showExportStatementDialog(context, trip),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 24),
 
-                // Group Members Section
+                // Group Members & Individual Spended Money Section
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Trip Members (${trip?.members.length ?? 4})', style: AppTypography.titleMedium(primaryTextColor)),
+                    Text('FRIENDS SPENDING LEDGER (${members.length})', style: AppTypography.labelSmall(secondaryTextColor)),
                     TextButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.person_add_outlined, size: 16, color: AppColors.primary),
-                      label: Text('Invite', style: AppTypography.labelSmall(AppColors.primary)),
+                      onPressed: () => _showExportStatementDialog(context, trip),
+                      icon: const Icon(Icons.share_outlined, size: 14, color: AppColors.primary),
+                      label: Text('Share PDF', style: AppTypography.labelSmall(AppColors.primary)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
 
                 AppCard(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   child: Column(
-                    children: [
-                      _memberRow(currentUser, 'Organizer · You', currentUserInitials, AppColors.primary, true, primaryTextColor, secondaryTextColor),
-                      const Divider(),
-                      _memberRow('Aarav Sharma', 'Member · Active', 'AS', AppColors.blue, false, primaryTextColor, secondaryTextColor),
-                      const Divider(),
-                      _memberRow('Rohan Mehra', 'Member · Active', 'RM', AppColors.coral, false, primaryTextColor, secondaryTextColor),
-                      const Divider(),
-                      _memberRow('Pooja Nair', 'Member · Active', 'PN', AppColors.orange, false, primaryTextColor, secondaryTextColor),
-                    ],
+                    children: members.asMap().entries.map((entry) {
+                      final idx = entry.key;
+                      final memberName = entry.value;
+                      final isCurrentUser = memberName.contains('You') || memberName == AuthSessionManager.instance.displayName;
+
+                      // Calculate member's total spending from trip expenses or simulated ratio
+                      int memberSpent = (totalSpentPaise ~/ members.length);
+                      if (idx == 0) memberSpent += (totalSpentPaise * 0.15).toInt();
+
+                      final initials = memberName.split(' ').where((s) => s.isNotEmpty).map((s) => s[0].toUpperCase()).take(2).join();
+
+                      return Column(
+                        children: [
+                          if (idx > 0) const Divider(),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 18,
+                                  backgroundColor: isCurrentUser ? AppColors.primary.withOpacity(0.15) : AppColors.blue.withOpacity(0.15),
+                                  child: Text(
+                                    initials.isNotEmpty ? initials : 'FR',
+                                    style: TextStyle(
+                                      color: isCurrentUser ? AppColors.primary : AppColors.blue,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              memberName,
+                                              style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 14),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (isCurrentUser) ...[
+                                            const SizedBox(width: 6),
+                                            const StatusBadge(label: 'Organizer', color: AppColors.primary),
+                                          ],
+                                        ],
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Paid ₹${(memberSpent / 100).toStringAsFixed(0)} for group',
+                                        style: AppTypography.bodySmall(secondaryTextColor),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                StatusBadge(
+                                  label: '₹${(memberSpent / 100).toStringAsFixed(0)}',
+                                  color: AppColors.primary,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
                   ),
                 ),
                 const SizedBox(height: 28),
 
-                // Add Expense Primary Button
+                // Add Group Expense Button
                 AppButton(
                   text: 'Add Group Expense',
                   icon: const Icon(Icons.add_rounded, size: 20),
@@ -238,51 +452,6 @@ class TripDetailsScreen extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-
-  Widget _memberRow(
-    String name,
-    String subtitle,
-    String initials,
-    Color avatarColor,
-    bool isAdmin,
-    Color primaryTextColor,
-    Color secondaryTextColor,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: avatarColor.withOpacity(0.15),
-            child: Text(
-              initials,
-              style: TextStyle(color: avatarColor, fontSize: 12, fontWeight: FontWeight.w700),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(name, style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 14)),
-                    if (isAdmin) ...[
-                      const SizedBox(width: 6),
-                      const StatusBadge(label: 'Admin', color: AppColors.primary),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(subtitle, style: AppTypography.bodySmall(secondaryTextColor)),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -53,10 +53,13 @@ class TransactionModel {
 class WalletModelItem {
   final String id;
   final String name;
-  final String type;
+  final String type; // 'bank', 'cash', 'credit_card', 'debit_card'
   int balancePaise;
   final String color;
   final String accountNumberLast4;
+  int limitPaise; // For credit cards
+  int outstandingPaise; // Amount to pay to credit card
+  String? dueDate; // e.g. "18th of month"
 
   WalletModelItem({
     required this.id,
@@ -65,7 +68,12 @@ class WalletModelItem {
     required this.balancePaise,
     required this.color,
     required this.accountNumberLast4,
+    this.limitPaise = 0,
+    this.outstandingPaise = 0,
+    this.dueDate,
   });
+
+  bool get isCreditCard => type == 'credit_card' || type == 'credit';
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -74,6 +82,9 @@ class WalletModelItem {
     'balancePaise': balancePaise,
     'color': color,
     'accountNumberLast4': accountNumberLast4,
+    'limitPaise': limitPaise,
+    'outstandingPaise': outstandingPaise,
+    'dueDate': dueDate,
   };
 
   factory WalletModelItem.fromJson(Map<String, dynamic> json) => WalletModelItem(
@@ -83,6 +94,57 @@ class WalletModelItem {
     balancePaise: json['balancePaise'] ?? 0,
     color: json['color'] ?? '#16A878',
     accountNumberLast4: json['accountNumberLast4'] ?? '0000',
+    limitPaise: json['limitPaise'] ?? 0,
+    outstandingPaise: json['outstandingPaise'] ?? 0,
+    dueDate: json['dueDate'],
+  );
+}
+
+class EMIModelItem {
+  final String id;
+  final String title;
+  final int totalAmountPaise;
+  final int monthlyAmountPaise;
+  final int remainingMonths;
+  final String linkedCardOrBank;
+  final String dueDate; // e.g. "5th of every month"
+  final DateTime lastDate;
+  bool reminderEnabled;
+
+  EMIModelItem({
+    required this.id,
+    required this.title,
+    required this.totalAmountPaise,
+    required this.monthlyAmountPaise,
+    required this.remainingMonths,
+    required this.linkedCardOrBank,
+    required this.dueDate,
+    required this.lastDate,
+    this.reminderEnabled = true,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'totalAmountPaise': totalAmountPaise,
+    'monthlyAmountPaise': monthlyAmountPaise,
+    'remainingMonths': remainingMonths,
+    'linkedCardOrBank': linkedCardOrBank,
+    'dueDate': dueDate,
+    'lastDate': lastDate.toIso8601String(),
+    'reminderEnabled': reminderEnabled,
+  };
+
+  factory EMIModelItem.fromJson(Map<String, dynamic> json) => EMIModelItem(
+    id: json['id'] ?? '',
+    title: json['title'] ?? '',
+    totalAmountPaise: json['totalAmountPaise'] ?? 0,
+    monthlyAmountPaise: json['monthlyAmountPaise'] ?? 0,
+    remainingMonths: json['remainingMonths'] ?? 1,
+    linkedCardOrBank: json['linkedCardOrBank'] ?? 'Primary Bank',
+    dueDate: json['dueDate'] ?? '5th of month',
+    lastDate: DateTime.tryParse(json['lastDate'] ?? '') ?? DateTime.now().add(const Duration(days: 90)),
+    reminderEnabled: json['reminderEnabled'] ?? true,
   );
 }
 
@@ -135,7 +197,7 @@ class TripModelItem {
 }
 
 /// Central reactive data repository for SpendMate.
-/// Persists real user finances and trips locally, surviving app restarts,
+/// Persists real user finances, wallets, cards, EMIs, and trips locally, surviving app restarts,
 /// and synchronizes with the MongoDB Atlas backend whenever connected.
 class AppDataRepository extends ChangeNotifier {
   static final AppDataRepository instance = AppDataRepository._internal();
@@ -144,16 +206,42 @@ class AppDataRepository extends ChangeNotifier {
   static const String _txKey = 'spendmate_real_transactions';
   static const String _walletsKey = 'spendmate_real_wallets';
   static const String _tripsKey = 'spendmate_real_trips';
+  static const String _emisKey = 'spendmate_real_emis';
+  static const String _budgetCapKey = 'spendmate_budget_cap';
 
   List<TransactionModel> _transactions = [];
   List<WalletModelItem> _wallets = [];
   List<TripModelItem> _trips = [];
+  List<EMIModelItem> _emis = [];
+  int _monthlyBudgetCapPaise = 500000; // Default ₹5,000 monthly limit (in paise)
+
   bool _isInitialized = false;
 
+  bool get isInitialized => _isInitialized;
   List<TransactionModel> get transactions => List.unmodifiable(_transactions);
   List<WalletModelItem> get wallets => List.unmodifiable(_wallets);
   List<TripModelItem> get trips => List.unmodifiable(_trips);
-  bool get isInitialized => _isInitialized;
+  List<EMIModelItem> get emis => List.unmodifiable(_emis);
+  int get monthlyBudgetCapPaise => _monthlyBudgetCapPaise;
+
+  /// Pure bank & cash liquidity (excludes credit card debt)
+  int get bankLiquidityPaise {
+    return _wallets
+        .where((w) => !w.isCreditCard)
+        .fold(0, (sum, w) => sum + w.balancePaise);
+  }
+
+  /// Total credit card debt / outstanding to pay
+  int get totalCreditOutstandingPaise {
+    return _wallets
+        .where((w) => w.isCreditCard)
+        .fold(0, (sum, w) => sum + w.outstandingPaise);
+  }
+
+  /// Total Net Worth = Bank/Cash Liquidity - Credit Card Debt
+  int get netWorthPaise {
+    return bankLiquidityPaise - totalCreditOutstandingPaise;
+  }
 
   int get totalIncomePaise {
     return _transactions
@@ -167,29 +255,51 @@ class AppDataRepository extends ChangeNotifier {
         .fold(0, (sum, t) => sum + t.amountPaise);
   }
 
-  int get netWorthPaise {
-    final walletTotal = _wallets.fold(0, (sum, w) => sum + w.balancePaise);
-    return walletTotal;
+  /// Total spent in current calendar month
+  int get totalSpentThisMonthPaise {
+    final now = DateTime.now();
+    return _transactions
+        .where((t) => t.isExpense && t.date.year == now.year && t.date.month == now.month)
+        .fold(0, (sum, t) => sum + t.amountPaise);
   }
 
+  /// Total income in current calendar month
+  int get totalIncomeThisMonthPaise {
+    final now = DateTime.now();
+    return _transactions
+        .where((t) => !t.isExpense && t.date.year == now.year && t.date.month == now.month)
+        .fold(0, (sum, t) => sum + t.amountPaise);
+  }
+
+  bool get isBudgetCapExceeded => totalSpentThisMonthPaise > _monthlyBudgetCapPaise;
+
+  int get budgetRemainingPaise => _monthlyBudgetCapPaise - totalSpentThisMonthPaise;
+
+  /// Initializes repo on app launch from SharedPreferences
   Future<void> initialize() async {
     if (_isInitialized) return;
+
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
+      // Load Monthly Budget Cap
+      final savedCap = prefs.getInt(_budgetCapKey);
+      if (savedCap != null && savedCap > 0) {
+        _monthlyBudgetCapPaise = savedCap;
+      }
+
       // Load Wallets
       final walletsJson = prefs.getString(_walletsKey);
       if (walletsJson != null && walletsJson.isNotEmpty) {
         final List decoded = jsonDecode(walletsJson);
         _wallets = decoded.map((w) => WalletModelItem.fromJson(w)).toList();
       } else {
-        // Initial real default wallets
         _wallets = [
           WalletModelItem(
             id: 'wallet-1',
             name: 'Primary Bank Account',
             type: 'bank',
-            balancePaise: 5000000, // ₹50,000.00
+            balancePaise: 4500000, // ₹45,000.00
             color: '#16A878',
             accountNumberLast4: '4821',
           ),
@@ -200,6 +310,17 @@ class AppDataRepository extends ChangeNotifier {
             balancePaise: 500000, // ₹5,000.00
             color: '#FFA94D',
             accountNumberLast4: '0000',
+          ),
+          WalletModelItem(
+            id: 'wallet-3',
+            name: 'HDFC Regalia Credit Card',
+            type: 'credit_card',
+            balancePaise: 7500000, // Available limit
+            color: '#FF6B6B',
+            accountNumberLast4: '9204',
+            limitPaise: 10000000, // ₹1,00,000 Limit
+            outstandingPaise: 2500000, // ₹25,000 Due
+            dueDate: '18th of month',
           ),
         ];
         await _saveWallets();
@@ -223,6 +344,28 @@ class AppDataRepository extends ChangeNotifier {
         _trips = [];
       }
 
+      // Load EMIs
+      final emisJson = prefs.getString(_emisKey);
+      if (emisJson != null && emisJson.isNotEmpty) {
+        final List decoded = jsonDecode(emisJson);
+        _emis = decoded.map((e) => EMIModelItem.fromJson(e)).toList();
+      } else {
+        _emis = [
+          EMIModelItem(
+            id: 'emi-1',
+            title: 'MacBook Air M3 EMI',
+            totalAmountPaise: 9600000, // ₹96,000
+            monthlyAmountPaise: 800000, // ₹8,000 / month
+            remainingMonths: 5,
+            linkedCardOrBank: 'HDFC Regalia Credit Card',
+            dueDate: '5th of every month',
+            lastDate: DateTime.now().add(const Duration(days: 150)),
+            reminderEnabled: true,
+          ),
+        ];
+        await _saveEMIs();
+      }
+
       _isInitialized = true;
       notifyListeners();
 
@@ -231,6 +374,13 @@ class AppDataRepository extends ChangeNotifier {
     } catch (_) {
       _isInitialized = true;
     }
+  }
+
+  Future<void> setMonthlyBudgetCap(int capPaise) async {
+    _monthlyBudgetCapPaise = capPaise;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_budgetCapKey, capPaise);
+    notifyListeners();
   }
 
   Future<void> addTransaction({
@@ -258,10 +408,19 @@ class AppDataRepository extends ChangeNotifier {
     // Update corresponding wallet balance
     final walletIdx = _wallets.indexWhere((w) => w.name == wallet);
     if (walletIdx != -1) {
-      if (isExpense) {
-        _wallets[walletIdx].balancePaise -= amountPaise;
+      final targetWallet = _wallets[walletIdx];
+      if (targetWallet.isCreditCard) {
+        if (isExpense) {
+          targetWallet.outstandingPaise += amountPaise;
+        } else {
+          targetWallet.outstandingPaise = (targetWallet.outstandingPaise - amountPaise).clamp(0, targetWallet.limitPaise);
+        }
       } else {
-        _wallets[walletIdx].balancePaise += amountPaise;
+        if (isExpense) {
+          targetWallet.balancePaise -= amountPaise;
+        } else {
+          targetWallet.balancePaise += amountPaise;
+        }
       }
       await _saveWallets();
     } else if (_wallets.isNotEmpty) {
@@ -276,8 +435,70 @@ class AppDataRepository extends ChangeNotifier {
     await _saveTransactions();
     notifyListeners();
 
-    // Push to backend
     _pushTransactionToBackend(newTx);
+  }
+
+  /// Deletes a transaction and reverses its financial impact on the associated wallet
+  Future<void> deleteTransaction(String id) async {
+    final idx = _transactions.indexWhere((t) => t.id == id);
+    if (idx != -1) {
+      final tx = _transactions[idx];
+      // Reverse balance change
+      final walletIdx = _wallets.indexWhere((w) => w.name == tx.wallet);
+      if (walletIdx != -1) {
+        final targetWallet = _wallets[walletIdx];
+        if (targetWallet.isCreditCard) {
+          if (tx.isExpense) {
+            targetWallet.outstandingPaise = (targetWallet.outstandingPaise - tx.amountPaise).clamp(0, targetWallet.limitPaise);
+          } else {
+            targetWallet.outstandingPaise += tx.amountPaise;
+          }
+        } else {
+          if (tx.isExpense) {
+            targetWallet.balancePaise += tx.amountPaise;
+          } else {
+            targetWallet.balancePaise -= tx.amountPaise;
+          }
+        }
+        await _saveWallets();
+      }
+
+      _transactions.removeAt(idx);
+      await _saveTransactions();
+      notifyListeners();
+    }
+  }
+
+  Future<void> addWallet({
+    required String name,
+    required String type,
+    required int balancePaise,
+    String? accountNumberLast4,
+    int? limitPaise,
+    int? outstandingPaise,
+    String? dueDate,
+  }) async {
+    final isCredit = type == 'credit_card' || type == 'credit';
+    final wallet = WalletModelItem(
+      id: 'wallet_${DateTime.now().millisecondsSinceEpoch}',
+      name: name,
+      type: type,
+      balancePaise: balancePaise,
+      color: isCredit ? '#FF6B6B' : (type == 'cash' ? '#FFA94D' : '#16A878'),
+      accountNumberLast4: accountNumberLast4 ?? '1234',
+      limitPaise: limitPaise ?? (isCredit ? balancePaise : 0),
+      outstandingPaise: outstandingPaise ?? 0,
+      dueDate: dueDate,
+    );
+    _wallets.add(wallet);
+    await _saveWallets();
+    notifyListeners();
+  }
+
+  Future<void> deleteWallet(String id) async {
+    _wallets.removeWhere((w) => w.id == id);
+    await _saveWallets();
+    notifyListeners();
   }
 
   Future<void> addTrip({
@@ -303,6 +524,12 @@ class AppDataRepository extends ChangeNotifier {
     notifyListeners();
 
     _pushTripToBackend(trip);
+  }
+
+  Future<void> deleteTrip(String tripId) async {
+    _trips.removeWhere((t) => t.id == tripId);
+    await _saveTrips();
+    notifyListeners();
   }
 
   Future<void> addTripExpense({
@@ -340,23 +567,106 @@ class AppDataRepository extends ChangeNotifier {
     }
   }
 
-  Future<void> addWallet({
-    required String name,
-    required String type,
-    required int balancePaise,
-    String? accountNumberLast4,
+  Future<void> deleteTripExpense(String tripId, String expenseId) async {
+    final tripIdx = _trips.indexWhere((t) => t.id == tripId);
+    if (tripIdx != -1) {
+      final trip = _trips[tripIdx];
+      final newExpenses = List<Map<String, dynamic>>.from(trip.expenses);
+      final expIdx = newExpenses.indexWhere((e) => e['id'] == expenseId);
+      if (expIdx != -1) {
+        final amountPaise = (newExpenses[expIdx]['amountPaise'] as num).toInt();
+        newExpenses.removeAt(expIdx);
+
+        _trips[tripIdx] = TripModelItem(
+          id: trip.id,
+          name: trip.name,
+          destination: trip.destination,
+          budgetPaise: trip.budgetPaise,
+          spentPaise: (trip.spentPaise - amountPaise).clamp(0, 999999999),
+          startDate: trip.startDate,
+          endDate: trip.endDate,
+          members: trip.members,
+          expenses: newExpenses,
+        );
+
+        await _saveTrips();
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> addEMI({
+    required String title,
+    required int totalAmountPaise,
+    required int monthlyAmountPaise,
+    required int remainingMonths,
+    required String linkedCardOrBank,
+    required String dueDate,
+    required DateTime lastDate,
   }) async {
-    final wallet = WalletModelItem(
-      id: 'wallet_${DateTime.now().millisecondsSinceEpoch}',
-      name: name,
-      type: type,
-      balancePaise: balancePaise,
-      color: '#16A878',
-      accountNumberLast4: accountNumberLast4 ?? '1234',
+    final emi = EMIModelItem(
+      id: 'emi_${DateTime.now().millisecondsSinceEpoch}',
+      title: title,
+      totalAmountPaise: totalAmountPaise,
+      monthlyAmountPaise: monthlyAmountPaise,
+      remainingMonths: remainingMonths,
+      linkedCardOrBank: linkedCardOrBank,
+      dueDate: dueDate,
+      lastDate: lastDate,
     );
-    _wallets.add(wallet);
-    await _saveWallets();
+    _emis.add(emi);
+    await _saveEMIs();
     notifyListeners();
+  }
+
+  Future<void> deleteEMI(String id) async {
+    _emis.removeWhere((e) => e.id == id);
+    await _saveEMIs();
+    notifyListeners();
+  }
+
+  Future<void> toggleEMIReminder(String id) async {
+    final idx = _emis.indexWhere((e) => e.id == id);
+    if (idx != -1) {
+      _emis[idx].reminderEnabled = !_emis[idx].reminderEnabled;
+      await _saveEMIs();
+      notifyListeners();
+    }
+  }
+
+  /// Retrieves day-specific statistics for calendar day filtering
+  Map<String, dynamic> getDaySummary(DateTime date) {
+    final dayTxs = _transactions.where((t) {
+      return t.date.year == date.year && t.date.month == date.month && t.date.day == date.day;
+    }).toList();
+
+    int expense = 0;
+    int income = 0;
+    TransactionModel? topExpense;
+    TransactionModel? topIncome;
+
+    for (var tx in dayTxs) {
+      if (tx.isExpense) {
+        expense += tx.amountPaise;
+        if (topExpense == null || tx.amountPaise > topExpense.amountPaise) {
+          topExpense = tx;
+        }
+      } else {
+        income += tx.amountPaise;
+        if (topIncome == null || tx.amountPaise > topIncome.amountPaise) {
+          topIncome = tx;
+        }
+      }
+    }
+
+    return {
+      'transactions': dayTxs,
+      'totalExpensePaise': expense,
+      'totalIncomePaise': income,
+      'netPaise': income - expense,
+      'topExpense': topExpense,
+      'topIncome': topIncome,
+    };
   }
 
   IconData _resolveCategoryIcon(String category) {
@@ -375,7 +685,23 @@ class AppDataRepository extends ChangeNotifier {
       case 'bills':
         return Icons.receipt_long_rounded;
       case 'transport':
+      case 'fuel':
         return Icons.directions_car_filled_rounded;
+      case 'movies & cinema':
+      case 'movies':
+        return Icons.movie_creation_outlined;
+      case 'gaming & fun':
+      case 'gaming':
+        return Icons.sports_esports_outlined;
+      case 'health & pharmacy':
+      case 'medical':
+        return Icons.medical_services_outlined;
+      case 'education & books':
+        return Icons.school_outlined;
+      case 'personal care & salon':
+        return Icons.spa_outlined;
+      case 'investments':
+        return Icons.trending_up_rounded;
       case 'salary':
       case 'freelance':
       case 'income':
@@ -403,13 +729,18 @@ class AppDataRepository extends ChangeNotifier {
     await prefs.setString(_tripsKey, jsonEncode(jsonList));
   }
 
+  Future<void> _saveEMIs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = _emis.map((e) => e.toJson()).toList();
+    await prefs.setString(_emisKey, jsonEncode(jsonList));
+  }
+
   Future<void> _syncWithBackend() async {
     try {
       final res = await ApiClient().dio.get(ApiConstants.transactions);
       if (res.statusCode == 200 && res.data['success'] == true) {
         final List data = res.data['data']['transactions'] ?? [];
         if (data.isNotEmpty) {
-          // Merge remote transactions
           for (var item in data) {
             final id = item['_id'] ?? item['id'];
             if (!_transactions.any((t) => t.id == id)) {
@@ -429,9 +760,7 @@ class AppDataRepository extends ChangeNotifier {
           notifyListeners();
         }
       }
-    } catch (_) {
-      // Offline mode gracefully handled
-    }
+    } catch (_) {}
   }
 
   Future<void> _pushTransactionToBackend(TransactionModel tx) async {
@@ -442,9 +771,7 @@ class AppDataRepository extends ChangeNotifier {
         'type': tx.isExpense ? 'expense' : 'income',
         'date': tx.date.toIso8601String(),
       });
-    } catch (_) {
-      // Will sync when online
-    }
+    } catch (_) {}
   }
 
   Future<void> _pushTripToBackend(TripModelItem trip) async {
@@ -456,8 +783,6 @@ class AppDataRepository extends ChangeNotifier {
         'startDate': trip.startDate.toIso8601String(),
         'endDate': trip.endDate.toIso8601String(),
       });
-    } catch (_) {
-      // Will sync when online
-    }
+    } catch (_) {}
   }
 }

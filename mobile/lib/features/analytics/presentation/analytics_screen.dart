@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
-import '../../../core/widgets/currency_text.dart';
+import '../../../core/data/app_data_repository.dart';
+import '../../../core/services/app_sound_service.dart';
+import 'package:intl/intl.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -24,138 +26,295 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       appBar: AppBar(
         title: const Text('Financial Analytics'),
         centerTitle: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.file_download_outlined),
-            onPressed: () {},
-          ),
-        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Period Segmented Selector
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Row(
-                children: [
-                  _periodTab('Week', 0, isDark, primaryTextColor, secondaryTextColor),
-                  _periodTab('Month', 1, isDark, primaryTextColor, secondaryTextColor),
-                  _periodTab('Year', 2, isDark, primaryTextColor, secondaryTextColor),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
+      body: ListenableBuilder(
+        listenable: AppDataRepository.instance,
+        builder: (context, _) {
+          final repo = AppDataRepository.instance;
+          final allTxs = repo.transactions;
+          final now = DateTime.now();
 
-            // Cashflow Overview Card
-            AppCard(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('NET MONTHLY SAVINGS', style: AppTypography.labelSmall(secondaryTextColor)),
-                  const SizedBox(height: 6),
-                  const Text(
-                    '₹1,42,850.00',
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.primary),
+          // Filter by period
+          List<TransactionModel> periodTxs = [];
+          String periodTitle = 'This Month';
+          List<Map<String, dynamic>> barData = [];
+
+          if (_selectedPeriod == 0) {
+            // Week (Past 7 days)
+            periodTitle = 'Past 7 Days';
+            final sevenDaysAgo = now.subtract(const Duration(days: 7));
+            periodTxs = allTxs.where((t) => t.date.isAfter(sevenDaysAgo)).toList();
+
+            for (int i = 6; i >= 0; i--) {
+              final d = now.subtract(Duration(days: i));
+              final dayTxs = periodTxs.where((t) => t.date.year == d.year && t.date.month == d.month && t.date.day == d.day);
+              final spent = dayTxs.where((t) => t.isExpense).fold(0, (sum, t) => sum + t.amountPaise);
+              barData.add({
+                'label': DateFormat('E').format(d),
+                'amountPaise': spent,
+              });
+            }
+          } else if (_selectedPeriod == 1) {
+            // Month (Past 4 Weeks)
+            periodTitle = 'This Month';
+            periodTxs = allTxs.where((t) => t.date.year == now.year && t.date.month == now.month).toList();
+
+            for (int w = 1; w <= 4; w++) {
+              final weekTxs = periodTxs.where((t) {
+                final day = t.date.day;
+                if (w == 1) return day <= 7;
+                if (w == 2) return day > 7 && day <= 14;
+                if (w == 3) return day > 14 && day <= 21;
+                return day > 21;
+              });
+              final spent = weekTxs.where((t) => t.isExpense).fold(0, (sum, t) => sum + t.amountPaise);
+              barData.add({
+                'label': 'W$w',
+                'amountPaise': spent,
+              });
+            }
+          } else {
+            // Year (12 Months)
+            periodTitle = '${now.year} Annual';
+            periodTxs = allTxs.where((t) => t.date.year == now.year).toList();
+
+            for (int m = 1; m <= 12; m++) {
+              final monthTxs = periodTxs.where((t) => t.date.month == m);
+              final spent = monthTxs.where((t) => t.isExpense).fold(0, (sum, t) => sum + t.amountPaise);
+              barData.add({
+                'label': DateFormat('MMM').format(DateTime(now.year, m, 1)),
+                'amountPaise': spent,
+              });
+            }
+          }
+
+          final inflowPaise = periodTxs.where((t) => !t.isExpense).fold(0, (sum, t) => sum + t.amountPaise);
+          final outflowPaise = periodTxs.where((t) => t.isExpense).fold(0, (sum, t) => sum + t.amountPaise);
+          final netSavingsPaise = inflowPaise - outflowPaise;
+
+          // Compute max bar amount for scaling
+          final maxBar = barData.fold<int>(1, (max, item) => (item['amountPaise'] as int) > max ? item['amountPaise'] as int : max);
+
+          // Category distribution
+          final Map<String, int> catSpending = {};
+          for (var t in periodTxs.where((t) => t.isExpense)) {
+            catSpending[t.category] = (catSpending[t.category] ?? 0) + t.amountPaise;
+          }
+          final sortedCats = catSpending.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Period Segmented Selector
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+                    borderRadius: BorderRadius.circular(14),
                   ),
-                  const SizedBox(height: 4),
-                  Text('77% Savings Rate · ₹42,150 total expenditures', style: AppTypography.bodySmall(secondaryTextColor)),
-                  const SizedBox(height: 18),
-                  Row(
+                  child: Row(
                     children: [
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Total Inflow', style: AppTypography.bodySmall(secondaryTextColor)),
-                              const SizedBox(height: 4),
-                              const Text('₹1,85,000', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                            ],
-                          ),
+                      _periodTab('Week', 0, isDark, primaryTextColor, secondaryTextColor),
+                      _periodTab('Month', 1, isDark, primaryTextColor, secondaryTextColor),
+                      _periodTab('Year', 2, isDark, primaryTextColor, secondaryTextColor),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Cashflow Overview Card
+                AppCard(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('NET SAVINGS ($periodTitle)', style: AppTypography.labelSmall(secondaryTextColor)),
+                      const SizedBox(height: 6),
+                      Text(
+                        '₹${(netSavingsPaise / 100).toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w700,
+                          color: netSavingsPaise >= 0 ? AppColors.primary : AppColors.coral,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-                            borderRadius: BorderRadius.circular(12),
+                      const SizedBox(height: 4),
+                      Text(
+                        '₹${(outflowPaise / 100).toStringAsFixed(0)} total spent across ${periodTxs.where((t) => t.isExpense).length} purchases',
+                        style: AppTypography.bodySmall(secondaryTextColor),
+                      ),
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Total Inflow', style: AppTypography.bodySmall(secondaryTextColor)),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '+₹${(inflowPaise / 100).toStringAsFixed(0)}',
+                                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: AppColors.primary),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Total Outflow', style: AppTypography.bodySmall(secondaryTextColor)),
-                              const SizedBox(height: 4),
-                              const Text('₹42,150', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: AppColors.coral)),
-                            ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Total Outflow', style: AppTypography.bodySmall(secondaryTextColor)),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '-₹${(outflowPaise / 100).toStringAsFixed(0)}',
+                                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: AppColors.coral),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Interactive Spending Bar Chart
+                Text('SPENDING PATTERN ($periodTitle)', style: AppTypography.labelSmall(secondaryTextColor)),
+                const SizedBox(height: 10),
+                AppCard(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Expenditure Distribution', style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 15)),
+                          Text('Max: ₹${(maxBar / 100).toStringAsFixed(0)}', style: AppTypography.bodySmall(secondaryTextColor)),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Bar Graph Rows
+                      SizedBox(
+                        height: 140,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: barData.map((b) {
+                            final amount = b['amountPaise'] as int;
+                            final double ratio = maxBar > 0 ? (amount / maxBar).clamp(0.05, 1.0) : 0.05;
+                            return Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    if (amount > 0)
+                                      Text(
+                                        '₹${(amount / 100).toStringAsFixed(0)}',
+                                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: secondaryTextColor),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    const SizedBox(height: 4),
+                                    Container(
+                                      height: 100 * ratio,
+                                      decoration: BoxDecoration(
+                                        color: amount > 0 ? AppColors.primary : (isDark ? Colors.white12 : Colors.grey.shade300),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      b['label'],
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: primaryTextColor,
+                                      ),
+                                      maxLines: 1,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
                         ),
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // AI Insight Callout
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.surfaceDark : AppColors.purpleLight,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: AppColors.purple.withOpacity(0.3),
                 ),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.auto_awesome_rounded, color: AppColors.purple, size: 22),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('AI Spending Insight', style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 14)),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Your food & dining spend dropped by 12% this month! You are on pace to save an extra ₹6,500.',
-                          style: AppTypography.bodySmall(secondaryTextColor),
-                        ),
-                      ],
+                const SizedBox(height: 24),
+
+                // Top Categories Breakdown
+                Text('TOP SPENDING CATEGORIES', style: AppTypography.labelSmall(secondaryTextColor)),
+                const SizedBox(height: 10),
+
+                if (sortedCats.isEmpty)
+                  AppCard(
+                    padding: const EdgeInsets.all(20),
+                    child: Center(
+                      child: Text('No expenditures recorded for $periodTitle', style: AppTypography.bodySmall(secondaryTextColor)),
                     ),
-                  ),
-                ],
-              ),
+                  )
+                else
+                  ...sortedCats.map((cat) {
+                    final catPercent = outflowPaise > 0 ? ((cat.value / outflowPaise) * 100).toStringAsFixed(1) : '0';
+                    return AppCard(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: AppColors.coral.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.category_rounded, size: 20, color: AppColors.coral),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(cat.key, style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 14)),
+                                const SizedBox(height: 2),
+                                Text('$catPercent% of total outflows', style: AppTypography.bodySmall(secondaryTextColor)),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            '₹${(cat.value / 100).toStringAsFixed(0)}',
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.coral),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                const SizedBox(height: 24),
+              ],
             ),
-            const SizedBox(height: 24),
-
-            // Spending by Category
-            Text('SPENDING BY CATEGORY', style: AppTypography.labelSmall(secondaryTextColor)),
-            const SizedBox(height: 12),
-
-            _categoryRow('Food & Dining', 1450000, 34, AppColors.coral, isDark, primaryTextColor, secondaryTextColor),
-            _categoryRow('Travel & Trips', 1250000, 30, AppColors.blue, isDark, primaryTextColor, secondaryTextColor),
-            _categoryRow('Shopping', 820000, 19, AppColors.orange, isDark, primaryTextColor, secondaryTextColor),
-            _categoryRow('Bills & Utilities', 695000, 17, AppColors.purple, isDark, primaryTextColor, secondaryTextColor),
-            const SizedBox(height: 24),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -164,84 +323,26 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final isSelected = _selectedPeriod == index;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _selectedPeriod = index),
+        onTap: () {
+          AppSoundService.playSuccess();
+          setState(() => _selectedPeriod = index);
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? (isDark ? AppColors.cardDark : Colors.white) : Colors.transparent,
+            color: isSelected ? AppColors.primary : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    ),
-                  ]
-                : [],
           ),
+          alignment: Alignment.center,
           child: Text(
             title,
-            textAlign: TextAlign.center,
             style: TextStyle(
+              color: isSelected ? Colors.white : secondaryColor,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
               fontSize: 13,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              color: isSelected ? primaryColor : secondaryColor,
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _categoryRow(
-    String category,
-    int amountPaise,
-    int percentage,
-    Color color,
-    bool isDark,
-    Color primaryColor,
-    Color secondaryColor,
-  ) {
-    return AppCard(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(category, style: AppTypography.titleMedium(primaryColor).copyWith(fontSize: 14)),
-                ],
-              ),
-              Row(
-                children: [
-                  CurrencyText(amountPaise: amountPaise, fontSize: 14, fontWeight: FontWeight.w600),
-                  const SizedBox(width: 8),
-                  Text('$percentage%', style: AppTypography.bodySmall(secondaryColor)),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: percentage / 100.0,
-              minHeight: 5,
-              backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-            ),
-          ),
-        ],
       ),
     );
   }

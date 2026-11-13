@@ -8,6 +8,8 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/status_badge.dart';
+import '../../../core/widgets/delete_confirmation_dialog.dart';
+import '../../../core/services/app_sound_service.dart';
 
 class TripsScreen extends StatefulWidget {
   const TripsScreen({super.key});
@@ -19,6 +21,27 @@ class TripsScreen extends StatefulWidget {
 class _TripsScreenState extends State<TripsScreen> {
   int _selectedFilter = 0; // 0: Active, 1: Past
 
+  void _confirmDeleteTrip(BuildContext context, TripModelItem trip) async {
+    final confirmed = await DeleteConfirmationDialog.show(
+      context,
+      title: 'Delete Trip "${trip.name}"?',
+      message: 'Really want to delete this group trip? All associated group expenses and balances will be removed.',
+    );
+
+    if (confirmed) {
+      await AppDataRepository.instance.deleteTrip(trip.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Trip "${trip.name}" deleted successfully!'),
+            backgroundColor: AppColors.coral,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -27,10 +50,11 @@ class _TripsScreenState extends State<TripsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Group Trips'),
+        title: const Text('Group Trips & Travel'),
         centerTitle: false,
         actions: [
           IconButton(
+            tooltip: 'Create New Trip',
             icon: const Icon(Icons.add_rounded),
             onPressed: () => _showCreateTripDialog(context),
           ),
@@ -82,7 +106,7 @@ class _TripsScreenState extends State<TripsScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Plan group adventures, add co-travelers, and easily split shared expenses.',
+                          'Plan group adventures, add your friends, and track everyone\'s spendings and settlements.',
                           textAlign: TextAlign.center,
                           style: AppTypography.bodySmall(secondaryTextColor),
                         ),
@@ -98,23 +122,16 @@ class _TripsScreenState extends State<TripsScreen> {
                   ...displayedTrips.map((trip) {
                     final dateFormat = DateFormat('dd MMM');
                     final dateRangeStr = '${dateFormat.format(trip.startDate)} - ${dateFormat.format(trip.endDate)} ${trip.endDate.year}';
-                    final isUserOwed = trip.spentPaise > 0;
 
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 16.0),
                       child: _tripCard(
-                        id: trip.id,
-                        title: trip.name,
-                        location: trip.destination,
+                        trip: trip,
                         dates: dateRangeStr,
-                        membersCount: trip.members.isNotEmpty ? trip.members.length : 1,
-                        totalSpentPaise: trip.spentPaise,
-                        userBalancePaise: isUserOwed ? 0 : 0,
-                        color: AppColors.primary,
-                        icon: Icons.beach_access_rounded,
                         isDark: isDark,
                         primaryTextColor: primaryTextColor,
                         secondaryTextColor: secondaryTextColor,
+                        onDelete: () => _confirmDeleteTrip(context, trip),
                       ),
                     );
                   }),
@@ -130,7 +147,10 @@ class _TripsScreenState extends State<TripsScreen> {
   Widget _filterPill(String title, int index, bool isDark, Color primaryColor, Color secondaryColor) {
     final isSelected = _selectedFilter == index;
     return GestureDetector(
-      onTap: () => setState(() => _selectedFilter = index),
+      onTap: () {
+        AppSoundService.playSuccess();
+        setState(() => _selectedFilter = index);
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
@@ -150,28 +170,16 @@ class _TripsScreenState extends State<TripsScreen> {
   }
 
   Widget _tripCard({
-    required String id,
-    required String title,
-    required String location,
+    required TripModelItem trip,
     required String dates,
-    required int membersCount,
-    required int totalSpentPaise,
-    required int userBalancePaise,
-    required Color color,
-    required IconData icon,
     required bool isDark,
     required Color primaryTextColor,
     required Color secondaryTextColor,
+    required VoidCallback onDelete,
   }) {
-    final isOwed = userBalancePaise >= 0;
-    final balanceText = userBalancePaise == 0
-        ? 'Active Group'
-        : (isOwed
-            ? 'You get ₹${(userBalancePaise / 100).toStringAsFixed(0)}'
-            : 'You owe ₹${(userBalancePaise.abs() / 100).toStringAsFixed(0)}');
-
+    final remainingBudget = trip.budgetPaise - trip.spentPaise;
     return AppCard(
-      onTap: () => context.push('/trips/$id'),
+      onTap: () => context.push('/trips/${trip.id}'),
       padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -181,10 +189,10 @@ class _TripsScreenState extends State<TripsScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
+                  color: AppColors.primary.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(icon, color: color, size: 26),
+                child: const Icon(Icons.beach_access_rounded, color: AppColors.primary, size: 26),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -192,14 +200,14 @@ class _TripsScreenState extends State<TripsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      title,
+                      trip.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 16),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      location,
+                      trip.destination,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.bodySmall(secondaryTextColor),
@@ -207,18 +215,15 @@ class _TripsScreenState extends State<TripsScreen> {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              StatusBadge(
-                label: balanceText,
-                color: userBalancePaise == 0
-                    ? AppColors.primary
-                    : (isOwed ? AppColors.primary : AppColors.coral),
+              IconButton(
+                icon: const Icon(Icons.delete_outline_rounded, color: AppColors.coral, size: 20),
+                onPressed: onDelete,
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          const Divider(),
           const SizedBox(height: 12),
+          const Divider(),
+          const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -240,8 +245,28 @@ class _TripsScreenState extends State<TripsScreen> {
               ),
               const SizedBox(width: 8),
               Text(
-                '$membersCount members · ₹${(totalSpentPaise / 100).toStringAsFixed(0)} spent',
+                '${trip.members.length} friends · ₹${(trip.spentPaise / 100).toStringAsFixed(0)} spent',
                 style: AppTypography.labelSmall(primaryTextColor),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Budget: ₹${(trip.budgetPaise / 100).toStringAsFixed(0)}',
+                style: AppTypography.bodySmall(secondaryTextColor),
+              ),
+              Text(
+                remainingBudget >= 0
+                    ? '₹${(remainingBudget / 100).toStringAsFixed(0)} left'
+                    : '₹${(remainingBudget.abs() / 100).toStringAsFixed(0)} over budget',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: remainingBudget >= 0 ? AppColors.primary : AppColors.coral,
+                ),
               ),
             ],
           ),
@@ -253,7 +278,8 @@ class _TripsScreenState extends State<TripsScreen> {
   void _showCreateTripDialog(BuildContext context) {
     final titleController = TextEditingController();
     final destController = TextEditingController();
-    final budgetController = TextEditingController(text: '30000');
+    final budgetController = TextEditingController(text: '35000');
+    final friendsController = TextEditingController(text: 'Aarav, Rohan, Pooja');
 
     showModalBottomSheet(
       context: context,
@@ -268,64 +294,87 @@ class _TripsScreenState extends State<TripsScreen> {
           right: 24,
           top: 24,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Create New Group Trip', style: AppTypography.titleLarge(AppColors.textPrimaryLight)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: titleController,
-              decoration: const InputDecoration(labelText: 'Trip Title (e.g. Goa Beach Trip)'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: destController,
-              decoration: const InputDecoration(labelText: 'Destination (e.g. North Goa)'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: budgetController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Estimated Budget (₹)', prefixText: '₹ '),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () async {
-                  final title = titleController.text.trim();
-                  if (title.isEmpty) return;
-                  final dest = destController.text.trim();
-                  final budgetNum = int.tryParse(budgetController.text.trim()) ?? 30000;
-
-                  final currentUserName = AuthSessionManager.instance.displayName;
-
-                  await AppDataRepository.instance.addTrip(
-                    name: title,
-                    destination: dest.isNotEmpty ? dest : 'India',
-                    budgetPaise: budgetNum * 100,
-                    startDate: DateTime.now(),
-                    endDate: DateTime.now().add(const Duration(days: 4)),
-                    members: [currentUserName],
-                  );
-
-                  if (ctx.mounted) {
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Trip "$title" created successfully!')),
-                    );
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                child: const Text('Create Trip', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Create New Group Trip', style: AppTypography.titleLarge(AppColors.textPrimaryLight)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(labelText: 'Trip Title (e.g. Goa Beach Trip)', border: OutlineInputBorder()),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              TextField(
+                controller: destController,
+                decoration: const InputDecoration(labelText: 'Destination (e.g. South Goa)', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: budgetController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Trip Estimated Budget (₹)', prefixText: '₹ ', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: friendsController,
+                decoration: const InputDecoration(
+                  labelText: 'Add Friends (comma separated)',
+                  hintText: 'e.g. Aarav, Rohan, Pooja, Vikram',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.group_add_outlined),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final title = titleController.text.trim();
+                    if (title.isEmpty) return;
+                    final dest = destController.text.trim();
+                    final budgetNum = int.tryParse(budgetController.text.trim()) ?? 35000;
+
+                    final currentUserName = AuthSessionManager.instance.displayName;
+
+                    final friendsInput = friendsController.text.trim();
+                    final parsedFriends = friendsInput
+                        .split(',')
+                        .map((f) => f.trim())
+                        .where((f) => f.isNotEmpty)
+                        .toList();
+
+                    final allMembers = [currentUserName, ...parsedFriends];
+
+                    await AppDataRepository.instance.addTrip(
+                      name: title,
+                      destination: dest.isNotEmpty ? dest : 'India',
+                      budgetPaise: budgetNum * 100,
+                      startDate: DateTime.now(),
+                      endDate: DateTime.now().add(const Duration(days: 4)),
+                      members: allMembers,
+                    );
+
+                    AppSoundService.playIncomeChime();
+
+                    if (ctx.mounted) {
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Trip "$title" with ${allMembers.length} friends created!')),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: const Text('Create Trip', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

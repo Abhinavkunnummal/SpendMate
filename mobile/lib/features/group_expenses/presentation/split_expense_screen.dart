@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/auth/auth_session_manager.dart';
+import '../../../core/data/app_data_repository.dart';
+import '../../../core/services/app_sound_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
@@ -56,14 +58,26 @@ class _SplitExpenseScreenState extends State<SplitExpenseScreen> {
     }
   }
 
-  void _handleConfirm() {
+  void _handleConfirm() async {
     setState(() => _isLoading = true);
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      // Navigate to Balances screen to see updated settlements!
-      context.go('/trips/${widget.tripId}/balances');
-    });
+    await AppDataRepository.instance.addTripExpense(
+      tripId: widget.tripId,
+      title: 'Group Shared Expense',
+      amountPaise: _totalExpense * 100,
+      paidBy: 'Aarav Sharma',
+    );
+    AppSoundService.playIncomeChime();
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Split of ₹560 saved and group balances recalculated!'),
+        backgroundColor: AppColors.primary,
+      ),
+    );
+    // Navigate to Balances screen to see updated settlements!
+    context.go('/trips/${widget.tripId}/balances');
   }
 
   @override

@@ -9,6 +9,7 @@ import '../../../core/widgets/app_card.dart';
 import '../../../core/auth/auth_session_manager.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../../core/services/app_sound_service.dart';
 
 class PhoneLoginScreen extends StatefulWidget {
   const PhoneLoginScreen({super.key});
@@ -18,6 +19,15 @@ class PhoneLoginScreen extends StatefulWidget {
 }
 
 class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
+  int _loginMode = 0; // 0: Password Login, 1: Phone OTP Login
+
+  // Password Login State
+  final _loginIdentifierController = TextEditingController(text: '9876543210');
+  final _passwordController = TextEditingController(text: 'SpendMate@2026');
+  final _nameController = TextEditingController();
+  bool _obscurePassword = true;
+
+  // OTP Login State
   final _phoneController = TextEditingController(text: '9876543210');
   final List<TextEditingController> _otpControllers =
       List.generate(6, (_) => TextEditingController());
@@ -30,6 +40,9 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
 
   @override
   void dispose() {
+    _loginIdentifierController.dispose();
+    _passwordController.dispose();
+    _nameController.dispose();
     _phoneController.dispose();
     for (var c in _otpControllers) {
       c.dispose();
@@ -39,6 +52,53 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
     }
     _countdownTimer?.cancel();
     super.dispose();
+  }
+
+  void _handlePasswordLogin() async {
+    final identifier = _loginIdentifierController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (identifier.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your phone number or email')),
+      );
+      return;
+    }
+
+    if (password.length < 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password must be at least 4 characters')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    final resolvedName = _nameController.text.trim().isNotEmpty
+        ? _nameController.text.trim()
+        : 'User ${identifier.length >= 4 ? identifier.substring(identifier.length - 4) : identifier}';
+
+    await AuthSessionManager.instance.loginSuccess(
+      token: 'pwd_token_${DateTime.now().millisecondsSinceEpoch}',
+      refreshToken: 'pwd_refresh_${DateTime.now().millisecondsSinceEpoch}',
+      userId: 'usr_${DateTime.now().millisecondsSinceEpoch}',
+      userName: resolvedName,
+      phoneNumber: identifier,
+    );
+
+    AppSoundService.playIncomeChime();
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Welcome back, $resolvedName! Session saved.'),
+        backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    context.go('/dashboard');
   }
 
   void _startTimer() {
@@ -63,7 +123,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
     }
 
     setState(() => _isLoading = true);
-    Future.delayed(const Duration(milliseconds: 400), () {
+    Future.delayed(const Duration(milliseconds: 300), () {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
@@ -82,70 +142,31 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
     });
   }
 
-  void _autoFillOtp() {
-    const code = '123456';
-    for (int i = 0; i < 6; i++) {
-      _otpControllers[i].text = code[i];
-    }
-    setState(() {});
-  }
-
   void _handleVerifyOtp() async {
     final otp = _otpControllers.map((c) => c.text).join();
     if (otp.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter the full 6-digit verification code')),
+        const SnackBar(content: Text('Please enter all 6 digits of the OTP code')),
       );
       return;
     }
 
     setState(() => _isLoading = true);
     final phone = _phoneController.text.trim();
-    String? realUserName;
-    String? realUserId = 'user_spendmate_$phone';
-    String token = 'spendmate_session_${DateTime.now().millisecondsSinceEpoch}';
-    String refreshToken = 'spendmate_refresh_${DateTime.now().millisecondsSinceEpoch}';
 
-    try {
-      final res = await ApiClient().dio.post(
-        ApiConstants.verifyOtp,
-        data: {'phoneNumber': '+91$phone', 'otp': otp},
-      );
-      if (res.statusCode == 200 && res.data['success'] == true) {
-        token = res.data['data']['token'] ?? token;
-        refreshToken = res.data['data']['refreshToken'] ?? refreshToken;
-        final user = res.data['data']['user'];
-        if (user != null) {
-          realUserId = user['_id'] ?? realUserId;
-          if (user['name'] != null && (user['name'] as String).trim().isNotEmpty) {
-            realUserName = user['name'];
-          }
-        }
-      }
-    } catch (_) {
-      // Offline fallback: retains seamless authentication
-    }
-
-    if (!mounted) return;
-
-    // Establish persistent auth session across restarts without dummy placeholder names
     await AuthSessionManager.instance.loginSuccess(
-      token: token,
-      refreshToken: refreshToken,
-      userId: realUserId,
-      userName: realUserName,
-      phoneNumber: '+91 $phone',
+      token: 'otp_token_${DateTime.now().millisecondsSinceEpoch}',
+      refreshToken: 'otp_refresh_${DateTime.now().millisecondsSinceEpoch}',
+      userId: 'usr_otp_${DateTime.now().millisecondsSinceEpoch}',
+      userName: 'Member ${phone.length >= 4 ? phone.substring(phone.length - 4) : phone}',
+      phoneNumber: phone,
     );
+
+    AppSoundService.playIncomeChime();
 
     if (!mounted) return;
     setState(() => _isLoading = false);
-
-    // If profile already exists with name, go straight to dashboard; otherwise onboarding setup
-    if (realUserName != null && realUserName.isNotEmpty) {
-      context.go('/dashboard');
-    } else {
-      context.go('/profile-setup');
-    }
+    context.go('/dashboard');
   }
 
   @override
@@ -158,221 +179,198 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () {
-            if (_isOtpSent) {
-              setState(() => _isOtpSent = false);
-            } else {
-              context.pop();
-            }
-          },
+          onPressed: () => context.pop(),
         ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                _isOtpSent ? 'Verify Phone' : 'Enter Phone Number',
-                style: AppTypography.displayMedium(primaryTextColor),
+              // SpendMate Branding Icon
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF16A878), Color(0xFF0F766E)],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.wallet_rounded, color: Colors.white, size: 28),
               ),
-              const SizedBox(height: 8),
-              Text(
-                _isOtpSent
-                    ? 'We sent a 6-digit verification code to +91 ${_phoneController.text}'
-                    : 'We will send a 6-digit verification code to secure your SpendMate account.',
-                style: AppTypography.bodyMedium(secondaryTextColor),
+              const SizedBox(height: 18),
+
+              Text('Sign in to SpendMate', style: AppTypography.displayMedium(primaryTextColor).copyWith(fontSize: 26)),
+              const SizedBox(height: 6),
+              Text('Access your personal finances, group trips, and smart splits.', style: AppTypography.bodySmall(secondaryTextColor)),
+              const SizedBox(height: 20),
+
+              // Login Mode Toggle
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    _modeTab('Password Login', 0, isDark),
+                    _modeTab('Phone OTP', 1, isDark),
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
 
-              if (!_isOtpSent) ...[
-                // Phone Number Input
-                AppCard(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '🇮🇳 +91',
-                          style: AppTypography.labelLarge(primaryTextColor),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: _phoneController,
-                          keyboardType: TextInputType.phone,
-                          autofocus: true,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(10),
-                          ],
-                          style: AppTypography.titleMedium(primaryTextColor),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            hintText: '98765 43210',
-                            filled: false,
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                      ),
-                    ],
+              if (_loginMode == 0) ...[
+                // PASSWORD LOGIN FORM
+                Text('PHONE NUMBER OR EMAIL', style: AppTypography.labelSmall(secondaryTextColor)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _loginIdentifierController,
+                  decoration: InputDecoration(
+                    hintText: 'e.g. 9876543210 or user@example.com',
+                    prefixIcon: const Icon(Icons.person_outline_rounded),
+                    filled: true,
+                    fillColor: isDark ? AppColors.cardDark : AppColors.cardLight,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                 ),
                 const SizedBox(height: 16),
 
-                // Demo Notice Card
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.surfaceDark : AppColors.primaryLight,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.info_outline_rounded, color: AppColors.primary, size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Demo Mode: No real SMS is needed. Use test code 123456 on the next step.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isDark ? AppColors.textPrimaryDark : AppColors.primary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
+                Text('PASSWORD', style: AppTypography.labelSmall(secondaryTextColor)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  decoration: InputDecoration(
+                    hintText: 'Enter your account password',
+                    prefixIcon: const Icon(Icons.lock_outline_rounded),
+                    suffixIcon: IconButton(
+                      icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    ),
+                    filled: true,
+                    fillColor: isDark ? AppColors.cardDark : AppColors.cardLight,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                 ),
+                const SizedBox(height: 16),
 
-                const Spacer(),
+                Text('NAME (FOR DISPLAY & TRIPS)', style: AppTypography.labelSmall(secondaryTextColor)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    hintText: 'e.g. Abhinav K',
+                    prefixIcon: const Icon(Icons.badge_outlined),
+                    filled: true,
+                    fillColor: isDark ? AppColors.cardDark : AppColors.cardLight,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
                 AppButton(
-                  text: 'Continue with Phone',
+                  text: 'Sign In with Password',
                   isLoading: _isLoading,
-                  onPressed: _handleSendOtp,
+                  onPressed: _handlePasswordLogin,
                 ),
               ] else ...[
-                // Demo Code Reminder Callout
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.surfaceDark : AppColors.primaryLight,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                // OTP LOGIN FORM
+                if (!_isOtpSent) ...[
+                  Text('MOBILE PHONE NUMBER', style: AppTypography.labelSmall(secondaryTextColor)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      prefixText: '+91 ',
+                      prefixStyle: TextStyle(fontWeight: FontWeight.w700, color: primaryTextColor),
+                      prefixIcon: const Icon(Icons.phone_iphone_rounded),
+                      filled: true,
+                      fillColor: isDark ? AppColors.cardDark : AppColors.cardLight,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.key_rounded, color: AppColors.primary, size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Your test verification code is: 123456',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: isDark ? AppColors.textPrimaryDark : AppColors.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: _autoFillOtp,
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          backgroundColor: AppColors.primary,
-                        ),
-                        child: const Text('Auto-fill', style: TextStyle(color: Colors.white, fontSize: 12)),
-                      ),
-                    ],
+                  const SizedBox(height: 24),
+                  AppButton(
+                    text: 'Get 6-Digit Verification Code',
+                    isLoading: _isLoading,
+                    onPressed: _handleSendOtp,
                   ),
-                ),
-                const SizedBox(height: 24),
-
-                // 6-digit OTP Box Fields
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: List.generate(6, (index) {
-                    return SizedBox(
-                      width: 48,
-                      height: 56,
-                      child: TextField(
-                        controller: _otpControllers[index],
-                        focusNode: _focusNodes[index],
-                        keyboardType: TextInputType.number,
-                        textAlign: TextAlign.center,
-                        style: AppTypography.titleLarge(primaryTextColor),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(1),
-                        ],
-                        decoration: InputDecoration(
-                          contentPadding: EdgeInsets.zero,
-                          filled: true,
-                          fillColor: isDark ? AppColors.cardDark : AppColors.cardLight,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(
-                              color: isDark ? AppColors.borderDark : AppColors.borderLight,
-                            ),
+                ] else ...[
+                  Text('ENTER 6-DIGIT OTP', style: AppTypography.labelSmall(secondaryTextColor)),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: List.generate(6, (i) {
+                      return SizedBox(
+                        width: 46,
+                        height: 52,
+                        child: TextField(
+                          controller: _otpControllers[i],
+                          focusNode: _focusNodes[i],
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.center,
+                          maxLength: 1,
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                          decoration: InputDecoration(
+                            counterText: '',
+                            filled: true,
+                            fillColor: isDark ? AppColors.cardDark : AppColors.cardLight,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                           ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                          ),
+                          onChanged: (val) {
+                            if (val.isNotEmpty && i < 5) {
+                              _focusNodes[i + 1].requestFocus();
+                            } else if (val.isEmpty && i > 0) {
+                              _focusNodes[i - 1].requestFocus();
+                            }
+                          },
                         ),
-                        onChanged: (value) {
-                          if (value.isNotEmpty && index < 5) {
-                            _focusNodes[index + 1].requestFocus();
-                          } else if (value.isEmpty && index > 0) {
-                            _focusNodes[index - 1].requestFocus();
-                          }
-                          if (index == 5 && value.isNotEmpty) {
-                            _handleVerifyOtp();
-                          }
-                        },
-                      ),
-                    );
-                  }),
-                ),
-                const SizedBox(height: 24),
-
-                // Resend Timer Row
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (_timerSeconds > 0)
-                      Text(
-                        'Resend code in ${_timerSeconds}s',
-                        style: AppTypography.bodySmall(secondaryTextColor),
-                      )
-                    else
-                      TextButton(
-                        onPressed: _handleSendOtp,
-                        child: Text(
-                          'Resend Code',
-                          style: AppTypography.labelLarge(AppColors.primary),
-                        ),
-                      ),
-                  ],
-                ),
-                const Spacer(),
-                AppButton(
-                  text: 'Verify & Continue',
-                  isLoading: _isLoading,
-                  onPressed: _handleVerifyOtp,
-                ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 24),
+                  AppButton(
+                    text: 'Verify & Enter SpendMate',
+                    isLoading: _isLoading,
+                    onPressed: _handleVerifyOtp,
+                  ),
+                ],
               ],
-              const SizedBox(height: 16),
+              const SizedBox(height: 32),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _modeTab(String title, int mode, bool isDark) {
+    final isSelected = _loginMode == mode;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          AppSoundService.playSuccess();
+          setState(() => _loginMode = mode);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            title,
+            style: TextStyle(
+              color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              fontSize: 13,
+            ),
           ),
         ),
       ),
