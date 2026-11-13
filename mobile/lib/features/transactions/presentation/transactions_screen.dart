@@ -464,16 +464,33 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                       fontWeight: FontWeight.w700,
                                     ),
                                     const SizedBox(height: 4),
-                                    GestureDetector(
-                                      onTap: () => _confirmDelete(context, tx),
-                                      child: const Text(
-                                        'Delete',
-                                        style: TextStyle(
-                                          color: AppColors.coral,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        GestureDetector(
+                                          onTap: () => context.push('/transactions/${tx.id}'),
+                                          child: const Text(
+                                            'Edit',
+                                            style: TextStyle(
+                                              color: AppColors.primary,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
                                         ),
-                                      ),
+                                        const SizedBox(width: 8),
+                                        GestureDetector(
+                                          onTap: () => _confirmDelete(context, tx),
+                                          child: const Text(
+                                            'Delete',
+                                            style: TextStyle(
+                                              color: AppColors.coral,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),

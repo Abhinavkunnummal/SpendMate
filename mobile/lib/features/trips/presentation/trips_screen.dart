@@ -214,9 +214,25 @@ class _TripsScreenState extends State<TripsScreen> {
                   ],
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline_rounded, color: AppColors.coral, size: 20),
-                onPressed: onDelete,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.grey),
+                    tooltip: 'Edit Trip',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => _showEditTripDialog(context, trip),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline_rounded, color: AppColors.coral, size: 18),
+                    tooltip: 'Delete Trip',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: onDelete,
+                  ),
+                ],
               ),
             ],
           ),
@@ -243,9 +259,13 @@ class _TripsScreenState extends State<TripsScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                '${trip.members.length} friends · ₹${(trip.spentPaise / 100).toStringAsFixed(0)} spent',
-                style: AppTypography.labelSmall(primaryTextColor),
+              Flexible(
+                child: Text(
+                  '${trip.members.length} friends · ₹${(trip.spentPaise / 100).toStringAsFixed(0)} spent',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.labelSmall(primaryTextColor),
+                ),
               ),
             ],
           ),
@@ -253,20 +273,33 @@ class _TripsScreenState extends State<TripsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Budget: ₹${(trip.budgetPaise / 100).toStringAsFixed(0)}',
-                style: AppTypography.bodySmall(secondaryTextColor),
-              ),
-              Text(
-                remainingBudget >= 0
-                    ? '₹${(remainingBudget / 100).toStringAsFixed(0)} left'
-                    : '₹${(remainingBudget.abs() / 100).toStringAsFixed(0)} over budget',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: remainingBudget >= 0 ? AppColors.primary : AppColors.coral,
+              Flexible(
+                child: Text(
+                  trip.budgetPaise > 0
+                      ? 'Budget: ₹${(trip.budgetPaise / 100).toStringAsFixed(0)}'
+                      : 'Flexible / Open Budget',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.bodySmall(secondaryTextColor),
                 ),
               ),
+              const SizedBox(width: 8),
+              if (trip.budgetPaise > 0)
+                Text(
+                  remainingBudget >= 0
+                      ? '₹${(remainingBudget / 100).toStringAsFixed(0)} left'
+                      : '₹${(remainingBudget.abs() / 100).toStringAsFixed(0)} over',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: remainingBudget >= 0 ? AppColors.primary : AppColors.coral,
+                  ),
+                )
+              else
+                const Text(
+                  'No Limit',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary),
+                ),
             ],
           ),
         ],
@@ -274,11 +307,115 @@ class _TripsScreenState extends State<TripsScreen> {
     );
   }
 
+  void _showEditTripDialog(BuildContext context, TripModelItem trip) {
+    final titleController = TextEditingController(text: trip.name);
+    final destController = TextEditingController(text: trip.destination);
+    final budgetController = TextEditingController(
+      text: trip.budgetPaise > 0 ? (trip.budgetPaise / 100).toStringAsFixed(0) : '',
+    );
+    final friendsController = TextEditingController(text: trip.members.join(', '));
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+          left: 24,
+          right: 24,
+          top: 24,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Edit Trip', style: AppTypography.titleLarge(AppColors.textPrimaryLight)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(labelText: 'Trip Title', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: destController,
+                decoration: const InputDecoration(labelText: 'Destination', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: budgetController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Estimated Budget (₹) - Optional',
+                  hintText: 'Leave empty for flexible / open budget',
+                  prefixText: '₹ ',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: friendsController,
+                decoration: const InputDecoration(
+                  labelText: 'Friends / Members (comma separated)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.group_outlined),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final title = titleController.text.trim();
+                    if (title.isEmpty) return;
+                    final dest = destController.text.trim();
+                    final budgetNum = int.tryParse(budgetController.text.trim()) ?? 0;
+                    final parsedMembers = friendsController.text
+                        .split(',')
+                        .map((f) => f.trim())
+                        .where((f) => f.isNotEmpty)
+                        .toList();
+
+                    await AppDataRepository.instance.updateTrip(
+                      id: trip.id,
+                      name: title,
+                      destination: dest.isNotEmpty ? dest : trip.destination,
+                      budgetPaise: budgetNum * 100,
+                      startDate: trip.startDate,
+                      endDate: trip.endDate,
+                      members: parsedMembers.isNotEmpty ? parsedMembers : trip.members,
+                    );
+
+                    AppSoundService.playIncomeChime();
+
+                    if (ctx.mounted) {
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Trip "$title" updated!')),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: const Text('Save Changes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showCreateTripDialog(BuildContext context) {
     final titleController = TextEditingController();
     final destController = TextEditingController();
-    final budgetController = TextEditingController(text: '35000');
-    final friendsController = TextEditingController(text: 'Aarav, Rohan, Pooja');
+    final budgetController = TextEditingController();
+    final friendsController = TextEditingController();
 
     showModalBottomSheet(
       context: context,

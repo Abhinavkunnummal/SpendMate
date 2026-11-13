@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/auth/auth_session_manager.dart';
+import '../../../core/data/app_data_repository.dart';
+import '../../../core/services/app_sound_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_button.dart';
-import '../../../core/widgets/app_text_field.dart';
 
 class AddGroupExpenseScreen extends StatefulWidget {
   final String tripId;
@@ -16,23 +17,50 @@ class AddGroupExpenseScreen extends StatefulWidget {
 }
 
 class _AddGroupExpenseScreenState extends State<AddGroupExpenseScreen> {
-  final _amountController = TextEditingController(text: '560');
-  final _descriptionController = TextEditingController(text: 'Sightseeing Shuttle Tickets');
+  final _amountController = TextEditingController(text: '1200');
+  final _descriptionController = TextEditingController(text: 'Petrol / Fuel Refill');
 
   // Multi-Payer State
-  bool _isMultiPayer = true;
-  late final Map<String, TextEditingController> _payerControllers;
+  bool _isMultiPayer = false;
+  String _singlePayer = '';
+  final Map<String, TextEditingController> _payerControllers = {};
+
+  final List<String> _quickCategories = [
+    'Petrol & Fuel',
+    'Hotel / Resort',
+    'Food & Dining',
+    'Sightseeing & Tickets',
+    'Cab / Transportation',
+    'Snacks & Drinks',
+    'Groceries / Cooking',
+    'Activities & Sports',
+  ];
 
   @override
   void initState() {
     super.initState();
+    _initMembers();
+  }
+
+  void _initMembers() {
+    final tripList = AppDataRepository.instance.trips;
+    final trip = tripList.cast<TripModelItem?>().firstWhere(
+      (t) => t?.id == widget.tripId,
+      orElse: () => null,
+    );
+
     final myName = AuthSessionManager.instance.displayName;
-    _payerControllers = {
-      'Aarav Sharma': TextEditingController(text: '400'),
-      '$myName (You)': TextEditingController(text: '0'),
-      'Rohan Mehra': TextEditingController(text: '160'),
-      'Pooja Nair': TextEditingController(text: '0'),
-    };
+    final members = (trip != null && trip.members.isNotEmpty)
+        ? trip.members
+        : [myName, 'Friend 1'];
+
+    _singlePayer = members.first;
+
+    for (var m in members) {
+      _payerControllers[m] = TextEditingController(
+        text: m == _singlePayer ? _amountController.text : '0',
+      );
+    }
   }
 
   @override
@@ -46,12 +74,80 @@ class _AddGroupExpenseScreenState extends State<AddGroupExpenseScreen> {
   }
 
   int _calculatePaidSum() {
+    if (!_isMultiPayer) {
+      return int.tryParse(_amountController.text.trim()) ?? 0;
+    }
     int sum = 0;
     for (var c in _payerControllers.values) {
       final val = int.tryParse(c.text.trim()) ?? 0;
       sum += val;
     }
     return sum;
+  }
+
+  void _handleSave() async {
+    final title = _descriptionController.text.trim();
+    final amountText = _amountController.text.trim();
+    final totalAmount = int.tryParse(amountText) ?? 0;
+
+    if (title.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter an expense title / item name')),
+      );
+      return;
+    }
+
+    if (totalAmount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid amount greater than ₹0')),
+      );
+      return;
+    }
+
+    if (_isMultiPayer) {
+      final paidSum = _calculatePaidSum();
+      if (paidSum != totalAmount) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Contributions sum (₹$paidSum) must match total amount (₹$totalAmount)'),
+            backgroundColor: AppColors.coral,
+          ),
+        );
+        return;
+      }
+
+      // Add multi-payer entries
+      for (var entry in _payerControllers.entries) {
+        final amt = int.tryParse(entry.value.text.trim()) ?? 0;
+        if (amt > 0) {
+          await AppDataRepository.instance.addTripExpense(
+            tripId: widget.tripId,
+            title: '$title (${entry.key})',
+            amountPaise: amt * 100,
+            paidBy: entry.key,
+          );
+        }
+      }
+    } else {
+      await AppDataRepository.instance.addTripExpense(
+        tripId: widget.tripId,
+        title: title,
+        amountPaise: totalAmount * 100,
+        paidBy: _singlePayer,
+      );
+    }
+
+    AppSoundService.playIncomeChime();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Trip expense "$title" of ₹$totalAmount saved successfully!'),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+      context.pop();
+    }
   }
 
   @override
@@ -64,9 +160,18 @@ class _AddGroupExpenseScreenState extends State<AddGroupExpenseScreen> {
     final currentPaidSum = _calculatePaidSum();
     final isMatching = currentPaidSum == targetAmount;
 
+    final tripList = AppDataRepository.instance.trips;
+    final trip = tripList.cast<TripModelItem?>().firstWhere(
+      (t) => t?.id == widget.tripId,
+      orElse: () => null,
+    );
+    final members = (trip != null && trip.members.isNotEmpty)
+        ? trip.members
+        : [AuthSessionManager.instance.displayName];
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Group Expense'),
+        title: const Text('Add Trip Expense'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
@@ -91,8 +196,14 @@ class _AddGroupExpenseScreenState extends State<AddGroupExpenseScreen> {
                         child: TextField(
                           controller: _amountController,
                           keyboardType: TextInputType.number,
-                          onChanged: (_) => setState(() {}),
-                          style: TextStyle(fontSize: 44, fontWeight: FontWeight.w700, color: primaryTextColor),
+                          onChanged: (val) {
+                            setState(() {
+                              if (!_isMultiPayer && _payerControllers.containsKey(_singlePayer)) {
+                                _payerControllers[_singlePayer]!.text = val;
+                              }
+                            });
+                          },
+                          style: TextStyle(fontSize: 40, fontWeight: FontWeight.w700, color: primaryTextColor),
                           decoration: const InputDecoration(
                             border: InputBorder.none,
                             enabledBorder: InputBorder.none,
@@ -107,18 +218,37 @@ class _AddGroupExpenseScreenState extends State<AddGroupExpenseScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            // Description Field
-            AppTextField(
-              label: 'Expense Description',
-              hint: 'e.g. Dinner, Bus Tickets, Cottage Rental',
+            // Item Name / Description
+            Text('ITEM OR EXPENSE NAME', style: AppTypography.labelSmall(secondaryTextColor)),
+            const SizedBox(height: 8),
+            TextField(
               controller: _descriptionController,
-              prefixIcon: const Icon(Icons.receipt_outlined, size: 20),
+              decoration: const InputDecoration(
+                hintText: 'e.g. Petrol for car, Hotel booking, Dinner bill',
+                prefixIcon: Icon(Icons.receipt_long_rounded),
+                border: OutlineInputBorder(),
+              ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 10),
 
-            // Who Paid? (Multi-Payer support)
+            // Quick Category Chips
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: _quickCategories.take(6).map((cat) {
+                return ActionChip(
+                  label: Text(cat, style: const TextStyle(fontSize: 11)),
+                  onPressed: () {
+                    setState(() => _descriptionController.text = cat);
+                  },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 20),
+
+            // Who Paid Selector
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -129,7 +259,14 @@ class _AddGroupExpenseScreenState extends State<AddGroupExpenseScreen> {
                     Switch.adaptive(
                       value: _isMultiPayer,
                       activeColor: AppColors.primary,
-                      onChanged: (val) => setState(() => _isMultiPayer = val),
+                      onChanged: (val) {
+                        setState(() {
+                          _isMultiPayer = val;
+                          if (!val && _payerControllers.containsKey(_singlePayer)) {
+                            _payerControllers[_singlePayer]!.text = _amountController.text;
+                          }
+                        });
+                      },
                     ),
                   ],
                 ),
@@ -137,93 +274,155 @@ class _AddGroupExpenseScreenState extends State<AddGroupExpenseScreen> {
             ),
             const SizedBox(height: 8),
 
-            // Payers List
-            AppCard(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                children: _payerControllers.entries.map((entry) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6.0),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 16,
-                          backgroundColor: AppColors.primaryLight,
-                          child: Text(
-                            entry.key.substring(0, 1),
-                            style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 12),
-                          ),
+            if (!_isMultiPayer) ...[
+              // Single Payer Dropdown (Using REAL Trip Members!)
+              AppCard(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: members.contains(_singlePayer) ? _singlePayer : members.first,
+                    isExpanded: true,
+                    icon: const Icon(Icons.arrow_drop_down_rounded),
+                    dropdownColor: isDark ? AppColors.cardDark : Colors.white,
+                    items: members.map((m) {
+                      final isYou = m.contains('You') || m == AuthSessionManager.instance.displayName;
+                      return DropdownMenuItem<String>(
+                        value: m,
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 14,
+                              backgroundColor: AppColors.primaryLight,
+                              child: Text(
+                                m.isNotEmpty ? m[0].toUpperCase() : 'M',
+                                style: const TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                isYou ? '$m (You)' : m,
+                                style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 14),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(entry.key, style: AppTypography.bodyMedium(primaryTextColor)),
-                        ),
-                        SizedBox(
-                          width: 100,
-                          height: 40,
-                          child: TextField(
-                            controller: entry.value,
-                            keyboardType: TextInputType.number,
-                            textAlign: TextAlign.right,
-                            onChanged: (_) => setState(() {}),
-                            style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 14),
-                            decoration: InputDecoration(
-                              prefixText: '₹ ',
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              filled: true,
-                              fillColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          _singlePayer = val;
+                          if (_payerControllers.containsKey(val)) {
+                            _payerControllers[val]!.text = _amountController.text;
+                          }
+                        });
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ] else ...[
+              // Multi-Payer Breakdown (Using REAL Trip Members!)
+              AppCard(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  children: members.map((member) {
+                    if (!_payerControllers.containsKey(member)) {
+                      _payerControllers[member] = TextEditingController(text: '0');
+                    }
+                    final ctrl = _payerControllers[member]!;
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6.0),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: AppColors.primaryLight,
+                            child: Text(
+                              member.isNotEmpty ? member[0].toUpperCase() : 'M',
+                              style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 12),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              member,
+                              style: AppTypography.bodyMedium(primaryTextColor),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          SizedBox(
+                            width: 110,
+                            height: 40,
+                            child: TextField(
+                              controller: ctrl,
+                              keyboardType: TextInputType.number,
+                              textAlign: TextAlign.right,
+                              onChanged: (_) => setState(() {}),
+                              style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 14),
+                              decoration: InputDecoration(
+                                prefixText: '₹ ',
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                filled: true,
+                                fillColor: isDark ? AppColors.surfaceDark : AppColors.surfaceLight,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 10),
 
-            // Validation Status Indicator
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: isMatching ? AppColors.primaryLight : AppColors.coralLight,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    isMatching ? Icons.check_circle_rounded : Icons.info_outline_rounded,
-                    size: 16,
-                    color: isMatching ? AppColors.primary : AppColors.coral,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      isMatching
-                          ? 'Total contributions match ₹$targetAmount'
-                          : 'Paid sum ₹$currentPaidSum of ₹$targetAmount (Diff: ₹${targetAmount - currentPaidSum})',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: isMatching ? AppColors.primary : AppColors.coral,
+              // Multi-Payer Validation Status
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isMatching ? AppColors.primaryLight : AppColors.coralLight,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isMatching ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                      size: 16,
+                      color: isMatching ? AppColors.primary : AppColors.coral,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        isMatching
+                            ? 'Contributions match ₹$targetAmount'
+                            : 'Paid ₹$currentPaidSum of ₹$targetAmount (Difference: ₹${(targetAmount - currentPaidSum).abs()})',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isMatching ? AppColors.primary : AppColors.coral,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 32),
+            ],
 
-            // Continue to Split Configuration
+            const SizedBox(height: 28),
+
+            // Save Button
             AppButton(
-              text: 'Configure Split & Participants →',
-              onPressed: () {
-                context.push('/trips/${widget.tripId}/split-expense');
-              },
+              text: 'Save Trip Expense',
+              icon: const Icon(Icons.check_rounded, size: 20),
+              onPressed: _handleSave,
             ),
             const SizedBox(height: 24),
           ],

@@ -8,6 +8,7 @@ import '../../../core/widgets/status_badge.dart';
 import '../../../core/widgets/delete_confirmation_dialog.dart';
 import '../../../core/services/app_sound_service.dart';
 import '../../../core/data/app_data_repository.dart';
+import '../../../core/services/calendar_reminder_service.dart';
 import 'package:intl/intl.dart';
 
 class WalletsScreen extends StatefulWidget {
@@ -220,12 +221,25 @@ class _WalletsScreenState extends State<WalletsScreen> {
                                 fontWeight: FontWeight.w700,
                               ),
                               const SizedBox(height: 4),
-                              GestureDetector(
-                                onTap: () => _confirmDeleteWallet(context, w),
-                                child: const Text(
-                                  'Delete',
-                                  style: TextStyle(color: AppColors.coral, fontSize: 12, fontWeight: FontWeight.w600),
-                                ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  GestureDetector(
+                                    onTap: () => _showEditWalletSheet(context, w),
+                                    child: const Text(
+                                      'Edit',
+                                      style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  GestureDetector(
+                                    onTap: () => _confirmDeleteWallet(context, w),
+                                    child: const Text(
+                                      'Delete',
+                                      style: TextStyle(color: AppColors.coral, fontSize: 12, fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -288,9 +302,40 @@ class _WalletsScreenState extends State<WalletsScreen> {
                                   ],
                                 ),
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline_rounded, color: AppColors.coral, size: 20),
-                                onPressed: () => _confirmDeleteWallet(context, card),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.calendar_month_outlined, color: Color(0xFF4285F4), size: 18),
+                                    tooltip: 'Set Reminder in Google Calendar',
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    onPressed: () {
+                                      CalendarReminderService.openOrCopyGoogleCalendarReminder(
+                                        context,
+                                        title: 'Pay Credit Card: ${card.name} (Due: ${card.dueDate ?? '18th'})',
+                                        description: 'SpendMate payment reminder. Outstanding to pay: ₹${(card.outstandingPaise / 100).toStringAsFixed(0)}.',
+                                        dueDate: DateTime.now().add(const Duration(days: 5)),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    icon: const Icon(Icons.edit_outlined, color: Colors.grey, size: 18),
+                                    tooltip: 'Edit Card',
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    onPressed: () => _showEditWalletSheet(context, card),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline_rounded, color: AppColors.coral, size: 18),
+                                    tooltip: 'Delete Card',
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    onPressed: () => _confirmDeleteWallet(context, card),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -363,9 +408,40 @@ class _WalletsScreenState extends State<WalletsScreen> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline_rounded, color: AppColors.coral, size: 18),
-                                onPressed: () => _confirmDeleteEMI(context, emi),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.calendar_month_outlined, color: Color(0xFF4285F4), size: 18),
+                                    tooltip: 'Set Reminder in Google Calendar',
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    onPressed: () {
+                                      CalendarReminderService.openOrCopyGoogleCalendarReminder(
+                                        context,
+                                        title: 'Pay EMI: ${emi.title} (₹${(emi.monthlyAmountPaise / 100).toStringAsFixed(0)})',
+                                        description: 'Monthly installment reminder for ${emi.title}. Remaining months: ${emi.remainingMonths}.',
+                                        dueDate: DateTime.now().add(const Duration(days: 4)),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    icon: const Icon(Icons.edit_outlined, color: Colors.grey, size: 18),
+                                    tooltip: 'Edit EMI',
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    onPressed: () => _showEditEMISheet(context, emi),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline_rounded, color: AppColors.coral, size: 18),
+                                    tooltip: 'Delete EMI',
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    onPressed: () => _confirmDeleteEMI(context, emi),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -488,6 +564,242 @@ class _WalletsScreenState extends State<WalletsScreen> {
         );
       }
     }
+  }
+
+  void _showEditWalletSheet(BuildContext context, WalletModelItem wallet) {
+    final nameCtrl = TextEditingController(text: wallet.name);
+    final balanceCtrl = TextEditingController(
+      text: (wallet.balancePaise / 100).toStringAsFixed(0),
+    );
+    final limitCtrl = TextEditingController(
+      text: (wallet.limitPaise / 100).toStringAsFixed(0),
+    );
+    final outstandingCtrl = TextEditingController(
+      text: (wallet.outstandingPaise / 100).toStringAsFixed(0),
+    );
+    final dueCtrl = TextEditingController(text: wallet.dueDate ?? '18th of month');
+    final last4Ctrl = TextEditingController(text: wallet.accountNumberLast4);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).brightness == Brightness.dark ? AppColors.cardDark : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+          left: 20,
+          right: 20,
+          top: 20,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Edit ${wallet.isCreditCard ? 'Credit Card' : 'Account'}', style: AppTypography.titleLarge(AppColors.textPrimaryLight)),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Name', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              if (!wallet.isCreditCard) ...[
+                TextField(
+                  controller: balanceCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Current Balance (₹)', prefixText: '₹ ', border: OutlineInputBorder()),
+                ),
+              ] else ...[
+                TextField(
+                  controller: limitCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Total Credit Limit (₹)', prefixText: '₹ ', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: outstandingCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Amount to Pay / Outstanding (₹)', prefixText: '₹ ', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: dueCtrl,
+                  decoration: const InputDecoration(labelText: 'Bill Due Date', hintText: 'e.g. 18th of month', border: OutlineInputBorder()),
+                ),
+              ],
+              const SizedBox(height: 12),
+              TextField(
+                controller: last4Ctrl,
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                decoration: const InputDecoration(labelText: 'Last 4 Digits', counterText: '', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final name = nameCtrl.text.trim();
+                    if (name.isEmpty) return;
+
+                    final bal = int.tryParse(balanceCtrl.text.trim()) ?? 0;
+                    final limit = int.tryParse(limitCtrl.text.trim()) ?? 0;
+                    final outstanding = int.tryParse(outstandingCtrl.text.trim()) ?? 0;
+
+                    await AppDataRepository.instance.updateWallet(
+                      id: wallet.id,
+                      name: name,
+                      type: wallet.type,
+                      balancePaise: wallet.isCreditCard ? (limit - outstanding) * 100 : bal * 100,
+                      accountNumberLast4: last4Ctrl.text.trim().isNotEmpty ? last4Ctrl.text.trim() : wallet.accountNumberLast4,
+                      limitPaise: limit * 100,
+                      outstandingPaise: outstanding * 100,
+                      dueDate: dueCtrl.text.trim(),
+                    );
+
+                    AppSoundService.playIncomeChime();
+
+                    if (ctx.mounted) {
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('${wallet.name} updated successfully!')),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                  child: const Text('Save Changes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showEditEMISheet(BuildContext context, EMIModelItem emi) {
+    final titleCtrl = TextEditingController(text: emi.title);
+    final monthlyCtrl = TextEditingController(text: (emi.monthlyAmountPaise / 100).toStringAsFixed(0));
+    final principalCtrl = TextEditingController(text: (emi.totalAmountPaise / 100).toStringAsFixed(0));
+    final monthsCtrl = TextEditingController(text: emi.remainingMonths.toString());
+    final dueCtrl = TextEditingController(text: emi.dueDate);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(ctx).brightness == Brightness.dark ? AppColors.cardDark : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+          left: 20,
+          right: 20,
+          top: 20,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Edit EMI Installment', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: titleCtrl,
+                decoration: const InputDecoration(labelText: 'EMI Title', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: monthlyCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Monthly Amount (₹)', prefixText: '₹ ', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: principalCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Total Loan Principal (₹)', prefixText: '₹ ', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: monthsCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Months Left', border: OutlineInputBorder()),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: dueCtrl,
+                      decoration: const InputDecoration(labelText: 'Due Day', border: OutlineInputBorder()),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final title = titleCtrl.text.trim();
+                    final monthly = int.tryParse(monthlyCtrl.text.trim()) ?? 0;
+                    final principal = int.tryParse(principalCtrl.text.trim()) ?? 0;
+                    final months = int.tryParse(monthsCtrl.text.trim()) ?? 1;
+
+                    if (title.isEmpty || monthly <= 0) return;
+
+                    await AppDataRepository.instance.updateEMI(
+                      id: emi.id,
+                      title: title,
+                      totalAmountPaise: principal * 100,
+                      monthlyAmountPaise: monthly * 100,
+                      remainingMonths: months,
+                      linkedCardOrBank: emi.linkedCardOrBank,
+                      dueDate: dueCtrl.text.trim(),
+                      lastDate: DateTime.now().add(Duration(days: months * 30)),
+                    );
+
+                    AppSoundService.playIncomeChime();
+
+                    if (ctx.mounted) {
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('EMI "$title" updated successfully!')),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                  child: const Text('Save Changes', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showAddAccountSheet(BuildContext context, {int defaultTab = 0}) {

@@ -20,26 +20,41 @@ class SplitExpenseScreen extends StatefulWidget {
 class _SplitExpenseScreenState extends State<SplitExpenseScreen> {
   int _splitMethod = 0; // 0: Equal, 1: Custom, 2: Percentage
   bool _isLoading = false;
-
-  final int _totalExpense = 560;
-
-  final List<Map<String, dynamic>> _contributors = [
-    {'name': 'Aarav Sharma', 'paid': 400},
-    {'name': 'Rohan Mehra', 'paid': 160},
-  ];
+  int _totalExpense = 1200;
 
   late final List<Map<String, dynamic>> _participants;
 
   @override
   void initState() {
     super.initState();
+    _initParticipants();
+  }
+
+  void _initParticipants() {
+    final tripList = AppDataRepository.instance.trips;
+    final trip = tripList.cast<TripModelItem?>().firstWhere(
+      (t) => t?.id == widget.tripId,
+      orElse: () => null,
+    );
+
     final myName = AuthSessionManager.instance.displayName;
-    _participants = [
-      {'name': 'Aarav Sharma', 'selected': true, 'share': 140, 'percent': 25},
-      {'name': '$myName (You)', 'selected': true, 'share': 140, 'percent': 25},
-      {'name': 'Rohan Mehra', 'selected': true, 'share': 140, 'percent': 25},
-      {'name': 'Pooja Nair', 'selected': true, 'share': 140, 'percent': 25},
-    ];
+    final members = (trip != null && trip.members.isNotEmpty)
+        ? trip.members
+        : [myName, 'Friend 1'];
+
+    final count = members.length;
+    final perPerson = _totalExpense ~/ count;
+    final percent = (100 / count).round();
+
+    _participants = members.map((m) {
+      final isYou = m.contains('You') || m == myName;
+      return {
+        'name': isYou ? '$m (You)' : m,
+        'selected': true,
+        'share': perPerson,
+        'percent': percent,
+      };
+    }).toList();
   }
 
   void _recalculateShares() {
@@ -60,24 +75,33 @@ class _SplitExpenseScreenState extends State<SplitExpenseScreen> {
 
   void _handleConfirm() async {
     setState(() => _isLoading = true);
+
+    final tripList = AppDataRepository.instance.trips;
+    final trip = tripList.cast<TripModelItem?>().firstWhere(
+      (t) => t?.id == widget.tripId,
+      orElse: () => null,
+    );
+    final payer = (trip != null && trip.members.isNotEmpty) ? trip.members.first : 'You';
+
     await AppDataRepository.instance.addTripExpense(
       tripId: widget.tripId,
       title: 'Group Shared Expense',
       amountPaise: _totalExpense * 100,
-      paidBy: 'Aarav Sharma',
+      paidBy: payer,
     );
+
     AppSoundService.playIncomeChime();
 
     if (!mounted) return;
     setState(() => _isLoading = false);
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Split of ₹560 saved and group balances recalculated!'),
+      SnackBar(
+        content: Text('Split of ₹$_totalExpense saved and group balances updated!'),
         backgroundColor: AppColors.primary,
       ),
     );
-    // Navigate to Balances screen to see updated settlements!
-    context.go('/trips/${widget.tripId}/balances');
+    context.pop();
   }
 
   @override
@@ -95,70 +119,33 @@ class _SplitExpenseScreenState extends State<SplitExpenseScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Total & Contributors Summary Card
+            // Total Summary Card
             AppCard(
               padding: const EdgeInsets.all(18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text('EXPENSE TO SPLIT', style: AppTypography.labelSmall(secondaryTextColor)),
+                  const SizedBox(height: 6),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('TOTAL EXPENSE', style: AppTypography.labelSmall(secondaryTextColor)),
-                      const StatusBadge(label: '₹560.00', color: AppColors.primary),
+                      Text(
+                        '₹$_totalExpense',
+                        style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: AppColors.primary),
+                      ),
+                      StatusBadge(
+                        label: '${_participants.where((p) => p['selected'] as bool).length} People',
+                        color: AppColors.primary,
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  const Divider(),
-                  const SizedBox(height: 10),
-                  Text('PAID BY (CONTRIBUTORS)', style: AppTypography.labelSmall(secondaryTextColor)),
-                  const SizedBox(height: 8),
-                  ..._contributors.map((c) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(
-                                    color: AppColors.primary,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    c['name'],
-                                    style: AppTypography.bodyMedium(primaryTextColor),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Paid ₹${c['paid']}',
-                            style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 14),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
                 ],
               ),
             ),
             const SizedBox(height: 20),
 
-            // Split Method Selector
-            Text('SPLIT METHOD', style: AppTypography.labelSmall(secondaryTextColor)),
-            const SizedBox(height: 8),
+            // Split Method Tabs
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
@@ -167,72 +154,75 @@ class _SplitExpenseScreenState extends State<SplitExpenseScreen> {
               ),
               child: Row(
                 children: [
-                  _splitMethodTab('Equally', 0, isDark, primaryTextColor, secondaryTextColor),
-                  _splitMethodTab('Custom', 1, isDark, primaryTextColor, secondaryTextColor),
-                  _splitMethodTab('Percentage', 2, isDark, primaryTextColor, secondaryTextColor),
+                  _methodTab('Equal', 0, isDark),
+                  _methodTab('Custom', 1, isDark),
+                  _methodTab('Percentage', 2, isDark),
                 ],
               ),
             ),
             const SizedBox(height: 20),
 
-            // Participants List & Individual Shares
-            Text('PARTICIPANTS & SHARES', style: AppTypography.labelSmall(secondaryTextColor)),
+            // Participants Checklist & Split Calculation
+            Text('SPLIT BETWEEN MEMBERS', style: AppTypography.labelSmall(secondaryTextColor)),
             const SizedBox(height: 8),
 
             AppCard(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(12),
               child: Column(
                 children: _participants.map((p) {
+                  final isSelected = p['selected'] as bool;
+                  final name = p['name'] as String;
+                  final share = p['share'] as int;
+
                   return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    padding: const EdgeInsets.symmetric(vertical: 4.0),
                     child: Row(
                       children: [
-                        Checkbox(
-                          value: p['selected'],
+                        Checkbox.adaptive(
+                          value: isSelected,
                           activeColor: AppColors.primary,
                           onChanged: (val) {
                             setState(() {
-                              p['selected'] = val ?? false;
+                              p['selected'] = val ?? true;
                               _recalculateShares();
                             });
                           },
                         ),
-                        const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            p['name'],
-                            style: AppTypography.titleMedium(primaryTextColor).copyWith(fontSize: 14),
+                            name,
+                            style: AppTypography.titleMedium(primaryTextColor).copyWith(
+                              fontSize: 14,
+                              color: isSelected ? primaryTextColor : secondaryTextColor,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              '₹${p['share']}',
-                              style: AppTypography.titleMedium(primaryTextColor).copyWith(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                              ),
+                        if (isSelected)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isDark ? AppColors.surfaceDark : AppColors.primaryLight,
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                            Text(
-                              '${p['percent']}% share',
-                              style: AppTypography.bodySmall(secondaryTextColor),
+                            child: Text(
+                              _splitMethod == 2 ? '${p['percent']}%' : '₹$share',
+                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.primary),
                             ),
-                          ],
-                        ),
+                          ),
                       ],
                     ),
                   );
                 }).toList(),
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 28),
 
-            // Confirmation Button
+            // Confirm Button
             AppButton(
-              text: 'Confirm & Save Split (₹560)',
-              isLoading: _isLoading,
-              onPressed: _handleConfirm,
+              text: _isLoading ? 'Saving...' : 'Confirm Split & Recalculate',
+              onPressed: _isLoading ? () {} : _handleConfirm,
             ),
             const SizedBox(height: 24),
           ],
@@ -241,13 +231,16 @@ class _SplitExpenseScreenState extends State<SplitExpenseScreen> {
     );
   }
 
-  Widget _splitMethodTab(String label, int index, bool isDark, Color primaryColor, Color secondaryColor) {
+  Widget _methodTab(String title, int index, bool isDark) {
     final isSelected = _splitMethod == index;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _splitMethod = index),
+        onTap: () {
+          AppSoundService.playSuccess();
+          setState(() => _splitMethod = index);
+        },
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: isSelected ? (isDark ? AppColors.cardDark : Colors.white) : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
@@ -256,18 +249,18 @@ class _SplitExpenseScreenState extends State<SplitExpenseScreen> {
                     BoxShadow(
                       color: Colors.black.withOpacity(0.04),
                       blurRadius: 4,
-                      offset: const Offset(0, 1),
+                      offset: const Offset(0, 2),
                     ),
                   ]
-                : [],
+                : null,
           ),
+          alignment: Alignment.center,
           child: Text(
-            label,
-            textAlign: TextAlign.center,
+            title,
             style: TextStyle(
               fontSize: 13,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              color: isSelected ? primaryColor : secondaryColor,
+              color: isSelected ? AppColors.primary : AppColors.textSecondaryLight,
             ),
           ),
         ),

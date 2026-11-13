@@ -29,6 +29,7 @@ import '../../features/receipts/presentation/receipt_scanner_screen.dart';
 import '../../features/recurring/presentation/recurring_expenses_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/patt_book/presentation/patt_book_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorDashboardKey = GlobalKey<NavigatorState>();
@@ -152,6 +153,11 @@ final appRouter = GoRouter(
       path: '/wallets',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const WalletsScreen(), // Screen 8
+    ),
+    GoRoute(
+      path: '/patt-book',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const PattBookScreen(),
     ),
     GoRoute(
       path: '/budgets',

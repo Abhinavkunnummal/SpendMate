@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../storage/secure_storage_service.dart';
+import '../data/app_data_repository.dart';
 
 /// Manages persistent authentication state across the SpendMate app lifecycle.
 /// Notifies routers, UI widgets, and background sync services of session status.
@@ -104,6 +105,9 @@ class AuthSessionManager extends ChangeNotifier {
       firebaseUid: firebaseUid,
     );
 
+    // Reload repository data scoped specifically to this user
+    await AppDataRepository.instance.reloadUserData();
+
     _authStateController.add(true);
     notifyListeners();
   }
@@ -118,6 +122,7 @@ class AuthSessionManager extends ChangeNotifier {
   /// Gracefully terminates the user session, wipes encrypted tokens, and routes back to login.
   Future<void> logout() async {
     await SecureStorageService.clearAuth();
+    await AppDataRepository.instance.clearUserData();
     _token = null;
     _refreshToken = null;
     _userId = null;

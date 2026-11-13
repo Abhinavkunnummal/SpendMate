@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../network/api_client.dart';
 import '../constants/api_constants.dart';
+import '../auth/auth_session_manager.dart';
 
 class TransactionModel {
   final String id;
@@ -152,7 +153,7 @@ class TripModelItem {
   final String id;
   final String name;
   final String destination;
-  final int budgetPaise;
+  final int budgetPaise; // 0 means open/flexible budget
   int spentPaise;
   final DateTime startDate;
   final DateTime endDate;
@@ -196,9 +197,55 @@ class TripModelItem {
   );
 }
 
+/// Patt Book (കടം / പറ്റ് ബുക്ക് / Khata) Entry Model
+/// Strictly kept separate from personal net worth and wallet balances.
+class PattEntryItem {
+  final String id;
+  final String friendName;
+  final String? friendPhone;
+  int amountPaise;
+  bool youGave; // true: You gave (കിട്ടാനുള്ളത് / Lent), false: You took (കൊടുക്കാനുള്ളത് / Borrowed)
+  String note;
+  DateTime date;
+  bool isSettled;
+
+  PattEntryItem({
+    required this.id,
+    required this.friendName,
+    this.friendPhone,
+    required this.amountPaise,
+    required this.youGave,
+    required this.note,
+    required this.date,
+    this.isSettled = false,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'friendName': friendName,
+    'friendPhone': friendPhone,
+    'amountPaise': amountPaise,
+    'youGave': youGave,
+    'note': note,
+    'date': date.toIso8601String(),
+    'isSettled': isSettled,
+  };
+
+  factory PattEntryItem.fromJson(Map<String, dynamic> json) => PattEntryItem(
+    id: json['id'] ?? '',
+    friendName: json['friendName'] ?? 'Friend',
+    friendPhone: json['friendPhone'],
+    amountPaise: json['amountPaise'] ?? 0,
+    youGave: json['youGave'] ?? true,
+    note: json['note'] ?? '',
+    date: DateTime.tryParse(json['date'] ?? '') ?? DateTime.now(),
+    isSettled: json['isSettled'] ?? false,
+  );
+}
+
 /// Central reactive data repository for SpendMate.
-/// Persists real user finances, wallets, cards, EMIs, and trips locally, surviving app restarts,
-/// and synchronizes with the MongoDB Atlas backend whenever connected.
+/// Provides user-scoped persistence, CRUD with edit options, Patt Book separation,
+/// and backend sync.
 class AppDataRepository extends ChangeNotifier {
   static final AppDataRepository instance = AppDataRepository._internal();
   AppDataRepository._internal();
@@ -207,12 +254,14 @@ class AppDataRepository extends ChangeNotifier {
   static const String _walletsKey = 'spendmate_real_wallets';
   static const String _tripsKey = 'spendmate_real_trips';
   static const String _emisKey = 'spendmate_real_emis';
+  static const String _pattKey = 'spendmate_real_patt_entries';
   static const String _budgetCapKey = 'spendmate_budget_cap';
 
   List<TransactionModel> _transactions = [];
   List<WalletModelItem> _wallets = [];
   List<TripModelItem> _trips = [];
   List<EMIModelItem> _emis = [];
+  List<PattEntryItem> _pattEntries = [];
   int _monthlyBudgetCapPaise = 500000; // Default ₹5,000 monthly limit (in paise)
 
   bool _isInitialized = false;
@@ -222,7 +271,15 @@ class AppDataRepository extends ChangeNotifier {
   List<WalletModelItem> get wallets => List.unmodifiable(_wallets);
   List<TripModelItem> get trips => List.unmodifiable(_trips);
   List<EMIModelItem> get emis => List.unmodifiable(_emis);
+  List<PattEntryItem> get pattEntries => List.unmodifiable(_pattEntries);
   int get monthlyBudgetCapPaise => _monthlyBudgetCapPaise;
+
+  /// User-specific storage key ensuring zero cross-user data leakage
+  String _getUserKey(String baseKey) {
+    final user = AuthSessionManager.instance;
+    final uid = user.userId ?? user.phoneNumber ?? 'user_default';
+    return '${baseKey}_$uid';
+  }
 
   /// Pure bank & cash liquidity (excludes credit card debt)
   int get bankLiquidityPaise {
@@ -271,11 +328,75 @@ class AppDataRepository extends ChangeNotifier {
         .fold(0, (sum, t) => sum + t.amountPaise);
   }
 
-  bool get isBudgetCapExceeded => totalSpentThisMonthPaise > _monthlyBudgetCapPaise;
+  /// Total spent today (calendar day)
+  int get totalSpentTodayPaise {
+    final now = DateTime.now();
+    return _transactions
+        .where((t) => t.isExpense && t.date.year == now.year && t.date.month == now.month && t.date.day == now.day)
+        .fold(0, (sum, t) => sum + t.amountPaise);
+  }
 
+  /// Total income today (calendar day)
+  int get totalIncomeTodayPaise {
+    final now = DateTime.now();
+    return _transactions
+        .where((t) => !t.isExpense && t.date.year == now.year && t.date.month == now.month && t.date.day == now.day)
+        .fold(0, (sum, t) => sum + t.amountPaise);
+  }
+
+  bool get isBudgetCapExceeded => totalSpentThisMonthPaise > _monthlyBudgetCapPaise;
   int get budgetRemainingPaise => _monthlyBudgetCapPaise - totalSpentThisMonthPaise;
 
-  /// Initializes repo on app launch from SharedPreferences
+  // -------------------------------------------------------------
+  // PATT BOOK (കടം / പറ്റ് ബുക്ക്) GETTERS (SEPARATE TOTALS!)
+  // -------------------------------------------------------------
+
+  /// Total money you will get back from friends (കിട്ടാനുള്ളത് / Lent)
+  int get totalYouWillGetPaise {
+    return _pattEntries
+        .where((p) => !p.isSettled && p.youGave)
+        .fold(0, (sum, p) => sum + p.amountPaise);
+  }
+
+  /// Total money you need to give to friends (കൊടുക്കാനുള്ളത് / Borrowed)
+  int get totalYouWillGivePaise {
+    return _pattEntries
+        .where((p) => !p.isSettled && !p.youGave)
+        .fold(0, (sum, p) => sum + p.amountPaise);
+  }
+
+  /// Net Patt Balance = (You Will Get - You Will Give)
+  int get netPattBalancePaise => totalYouWillGetPaise - totalYouWillGivePaise;
+
+  /// Unique list of friends recorded in Patt Book
+  List<String> get pattFriends {
+    final Set<String> friends = {};
+    for (var p in _pattEntries) {
+      if (p.friendName.trim().isNotEmpty) {
+        friends.add(p.friendName.trim());
+      }
+    }
+    return friends.toList()..sort();
+  }
+
+  /// Balance with a single friend (Positive = friend owes you, Negative = you owe friend)
+  int getFriendBalancePaise(String friendName) {
+    int balance = 0;
+    for (var p in _pattEntries.where((e) => e.friendName == friendName && !e.isSettled)) {
+      if (p.youGave) {
+        balance += p.amountPaise;
+      } else {
+        balance -= p.amountPaise;
+      }
+    }
+    return balance;
+  }
+
+  // -------------------------------------------------------------
+  // INITIALIZATION & USER ISOLATION
+  // -------------------------------------------------------------
+
+  /// Initializes repo for the currently authenticated user
   Future<void> initialize() async {
     if (_isInitialized) return;
 
@@ -283,13 +404,15 @@ class AppDataRepository extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
 
       // Load Monthly Budget Cap
-      final savedCap = prefs.getInt(_budgetCapKey);
+      final savedCap = prefs.getInt(_getUserKey(_budgetCapKey));
       if (savedCap != null && savedCap > 0) {
         _monthlyBudgetCapPaise = savedCap;
+      } else {
+        _monthlyBudgetCapPaise = 500000;
       }
 
       // Load Wallets
-      final walletsJson = prefs.getString(_walletsKey);
+      final walletsJson = prefs.getString(_getUserKey(_walletsKey));
       if (walletsJson != null && walletsJson.isNotEmpty) {
         final List decoded = jsonDecode(walletsJson);
         _wallets = decoded.map((w) => WalletModelItem.fromJson(w)).toList();
@@ -315,7 +438,7 @@ class AppDataRepository extends ChangeNotifier {
             id: 'wallet-3',
             name: 'HDFC Regalia Credit Card',
             type: 'credit_card',
-            balancePaise: 7500000, // Available limit
+            balancePaise: 7500000,
             color: '#FF6B6B',
             accountNumberLast4: '9204',
             limitPaise: 10000000, // ₹1,00,000 Limit
@@ -327,7 +450,7 @@ class AppDataRepository extends ChangeNotifier {
       }
 
       // Load Transactions
-      final txJson = prefs.getString(_txKey);
+      final txJson = prefs.getString(_getUserKey(_txKey));
       if (txJson != null && txJson.isNotEmpty) {
         final List decoded = jsonDecode(txJson);
         _transactions = decoded.map((t) => TransactionModel.fromJson(t)).toList();
@@ -336,7 +459,7 @@ class AppDataRepository extends ChangeNotifier {
       }
 
       // Load Trips
-      final tripsJson = prefs.getString(_tripsKey);
+      final tripsJson = prefs.getString(_getUserKey(_tripsKey));
       if (tripsJson != null && tripsJson.isNotEmpty) {
         final List decoded = jsonDecode(tripsJson);
         _trips = decoded.map((t) => TripModelItem.fromJson(t)).toList();
@@ -345,7 +468,7 @@ class AppDataRepository extends ChangeNotifier {
       }
 
       // Load EMIs
-      final emisJson = prefs.getString(_emisKey);
+      final emisJson = prefs.getString(_getUserKey(_emisKey));
       if (emisJson != null && emisJson.isNotEmpty) {
         final List decoded = jsonDecode(emisJson);
         _emis = decoded.map((e) => EMIModelItem.fromJson(e)).toList();
@@ -354,8 +477,8 @@ class AppDataRepository extends ChangeNotifier {
           EMIModelItem(
             id: 'emi-1',
             title: 'MacBook Air M3 EMI',
-            totalAmountPaise: 9600000, // ₹96,000
-            monthlyAmountPaise: 800000, // ₹8,000 / month
+            totalAmountPaise: 9600000,
+            monthlyAmountPaise: 800000,
             remainingMonths: 5,
             linkedCardOrBank: 'HDFC Regalia Credit Card',
             dueDate: '5th of every month',
@@ -364,6 +487,33 @@ class AppDataRepository extends ChangeNotifier {
           ),
         ];
         await _saveEMIs();
+      }
+
+      // Load Patt Book Entries
+      final pattJson = prefs.getString(_getUserKey(_pattKey));
+      if (pattJson != null && pattJson.isNotEmpty) {
+        final List decoded = jsonDecode(pattJson);
+        _pattEntries = decoded.map((p) => PattEntryItem.fromJson(p)).toList();
+      } else {
+        _pattEntries = [
+          PattEntryItem(
+            id: 'patt-1',
+            friendName: 'Rahul',
+            amountPaise: 120000, // ₹1,200
+            youGave: true, // You gave -> Kittan ullath (Friend owes you)
+            note: 'Dinner bill split share',
+            date: DateTime.now().subtract(const Duration(days: 2)),
+          ),
+          PattEntryItem(
+            id: 'patt-2',
+            friendName: 'Sneha',
+            amountPaise: 50000, // ₹500
+            youGave: false, // You took -> Kodukkan ullath (You owe friend)
+            note: 'Cab share from airport',
+            date: DateTime.now().subtract(const Duration(days: 4)),
+          ),
+        ];
+        await _savePattEntries();
       }
 
       _isInitialized = true;
@@ -376,12 +526,33 @@ class AppDataRepository extends ChangeNotifier {
     }
   }
 
+  /// Wipes in-memory user data when logging out
+  Future<void> clearUserData() async {
+    _transactions = [];
+    _wallets = [];
+    _trips = [];
+    _emis = [];
+    _pattEntries = [];
+    _isInitialized = false;
+    notifyListeners();
+  }
+
+  /// Reloads user data when logging in as a different user
+  Future<void> reloadUserData() async {
+    _isInitialized = false;
+    await initialize();
+  }
+
   Future<void> setMonthlyBudgetCap(int capPaise) async {
     _monthlyBudgetCapPaise = capPaise;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_budgetCapKey, capPaise);
+    await prefs.setInt(_getUserKey(_budgetCapKey), capPaise);
     notifyListeners();
   }
+
+  // -------------------------------------------------------------
+  // TRANSACTIONS CRUD (ADD, EDIT, DELETE)
+  // -------------------------------------------------------------
 
   Future<void> addTransaction({
     required String title,
@@ -405,45 +576,113 @@ class AppDataRepository extends ChangeNotifier {
 
     _transactions.insert(0, newTx);
 
-    // Update corresponding wallet balance
-    final walletIdx = _wallets.indexWhere((w) => w.name == wallet);
-    if (walletIdx != -1) {
-      final targetWallet = _wallets[walletIdx];
-      if (targetWallet.isCreditCard) {
-        if (isExpense) {
-          targetWallet.outstandingPaise += amountPaise;
+    // Update corresponding wallet balance (unless it is a friend patt book entry)
+    if (!wallet.toLowerCase().contains('patt') && !wallet.toLowerCase().contains('friend')) {
+      final walletIdx = _wallets.indexWhere((w) => w.name == wallet);
+      if (walletIdx != -1) {
+        final targetWallet = _wallets[walletIdx];
+        if (targetWallet.isCreditCard) {
+          if (isExpense) {
+            targetWallet.outstandingPaise += amountPaise;
+          } else {
+            targetWallet.outstandingPaise = (targetWallet.outstandingPaise - amountPaise).clamp(0, targetWallet.limitPaise);
+          }
         } else {
-          targetWallet.outstandingPaise = (targetWallet.outstandingPaise - amountPaise).clamp(0, targetWallet.limitPaise);
+          if (isExpense) {
+            targetWallet.balancePaise -= amountPaise;
+          } else {
+            targetWallet.balancePaise += amountPaise;
+          }
         }
-      } else {
+        await _saveWallets();
+      } else if (_wallets.isNotEmpty) {
         if (isExpense) {
-          targetWallet.balancePaise -= amountPaise;
+          _wallets[0].balancePaise -= amountPaise;
         } else {
-          targetWallet.balancePaise += amountPaise;
+          _wallets[0].balancePaise += amountPaise;
         }
+        await _saveWallets();
       }
-      await _saveWallets();
-    } else if (_wallets.isNotEmpty) {
-      if (isExpense) {
-        _wallets[0].balancePaise -= amountPaise;
-      } else {
-        _wallets[0].balancePaise += amountPaise;
-      }
-      await _saveWallets();
     }
 
     await _saveTransactions();
     notifyListeners();
-
     _pushTransactionToBackend(newTx);
   }
 
-  /// Deletes a transaction and reverses its financial impact on the associated wallet
+  Future<void> updateTransaction({
+    required String id,
+    required String title,
+    required int amountPaise,
+    required bool isExpense,
+    required String category,
+    required String wallet,
+    DateTime? date,
+  }) async {
+    final idx = _transactions.indexWhere((t) => t.id == id);
+    if (idx != -1) {
+      final oldTx = _transactions[idx];
+
+      // 1. Revert previous wallet impact
+      final oldWIdx = _wallets.indexWhere((w) => w.name == oldTx.wallet);
+      if (oldWIdx != -1) {
+        final w = _wallets[oldWIdx];
+        if (w.isCreditCard) {
+          if (oldTx.isExpense) {
+            w.outstandingPaise = (w.outstandingPaise - oldTx.amountPaise).clamp(0, w.limitPaise);
+          } else {
+            w.outstandingPaise += oldTx.amountPaise;
+          }
+        } else {
+          if (oldTx.isExpense) {
+            w.balancePaise += oldTx.amountPaise;
+          } else {
+            w.balancePaise -= oldTx.amountPaise;
+          }
+        }
+      }
+
+      // 2. Apply new wallet impact
+      final newWIdx = _wallets.indexWhere((w) => w.name == wallet);
+      if (newWIdx != -1) {
+        final w = _wallets[newWIdx];
+        if (w.isCreditCard) {
+          if (isExpense) {
+            w.outstandingPaise += amountPaise;
+          } else {
+            w.outstandingPaise = (w.outstandingPaise - amountPaise).clamp(0, w.limitPaise);
+          }
+        } else {
+          if (isExpense) {
+            w.balancePaise -= amountPaise;
+          } else {
+            w.balancePaise += amountPaise;
+          }
+        }
+      }
+
+      await _saveWallets();
+
+      _transactions[idx] = TransactionModel(
+        id: id,
+        title: title,
+        category: category,
+        wallet: wallet,
+        amountPaise: amountPaise,
+        isExpense: isExpense,
+        date: date ?? oldTx.date,
+        icon: _resolveCategoryIcon(category),
+      );
+
+      await _saveTransactions();
+      notifyListeners();
+    }
+  }
+
   Future<void> deleteTransaction(String id) async {
     final idx = _transactions.indexWhere((t) => t.id == id);
     if (idx != -1) {
       final tx = _transactions[idx];
-      // Reverse balance change
       final walletIdx = _wallets.indexWhere((w) => w.name == tx.wallet);
       if (walletIdx != -1) {
         final targetWallet = _wallets[walletIdx];
@@ -468,6 +707,10 @@ class AppDataRepository extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  // -------------------------------------------------------------
+  // WALLETS & CARDS CRUD (ADD, EDIT, DELETE)
+  // -------------------------------------------------------------
 
   Future<void> addWallet({
     required String name,
@@ -495,11 +738,44 @@ class AppDataRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateWallet({
+    required String id,
+    required String name,
+    required String type,
+    required int balancePaise,
+    String? accountNumberLast4,
+    int? limitPaise,
+    int? outstandingPaise,
+    String? dueDate,
+  }) async {
+    final idx = _wallets.indexWhere((w) => w.id == id);
+    if (idx != -1) {
+      final isCredit = type == 'credit_card' || type == 'credit';
+      _wallets[idx] = WalletModelItem(
+        id: id,
+        name: name,
+        type: type,
+        balancePaise: balancePaise,
+        color: isCredit ? '#FF6B6B' : (type == 'cash' ? '#FFA94D' : '#16A878'),
+        accountNumberLast4: accountNumberLast4 ?? _wallets[idx].accountNumberLast4,
+        limitPaise: limitPaise ?? _wallets[idx].limitPaise,
+        outstandingPaise: outstandingPaise ?? _wallets[idx].outstandingPaise,
+        dueDate: dueDate ?? _wallets[idx].dueDate,
+      );
+      await _saveWallets();
+      notifyListeners();
+    }
+  }
+
   Future<void> deleteWallet(String id) async {
     _wallets.removeWhere((w) => w.id == id);
     await _saveWallets();
     notifyListeners();
   }
+
+  // -------------------------------------------------------------
+  // TRIPS & GROUP EXPENSES CRUD (ADD, EDIT, DELETE)
+  // -------------------------------------------------------------
 
   Future<void> addTrip({
     required String name,
@@ -524,6 +800,34 @@ class AppDataRepository extends ChangeNotifier {
     notifyListeners();
 
     _pushTripToBackend(trip);
+  }
+
+  Future<void> updateTrip({
+    required String id,
+    required String name,
+    required String destination,
+    required int budgetPaise,
+    required DateTime startDate,
+    required DateTime endDate,
+    List<String>? members,
+  }) async {
+    final idx = _trips.indexWhere((t) => t.id == id);
+    if (idx != -1) {
+      final trip = _trips[idx];
+      _trips[idx] = TripModelItem(
+        id: id,
+        name: name,
+        destination: destination,
+        budgetPaise: budgetPaise,
+        spentPaise: trip.spentPaise,
+        startDate: startDate,
+        endDate: endDate,
+        members: members ?? trip.members,
+        expenses: trip.expenses,
+      );
+      await _saveTrips();
+      notifyListeners();
+    }
   }
 
   Future<void> deleteTrip(String tripId) async {
@@ -567,6 +871,47 @@ class AppDataRepository extends ChangeNotifier {
     }
   }
 
+  Future<void> updateTripExpense({
+    required String tripId,
+    required String expenseId,
+    required String title,
+    required int amountPaise,
+    required String paidBy,
+  }) async {
+    final tripIdx = _trips.indexWhere((t) => t.id == tripId);
+    if (tripIdx != -1) {
+      final trip = _trips[tripIdx];
+      final newExpenses = List<Map<String, dynamic>>.from(trip.expenses);
+      final expIdx = newExpenses.indexWhere((e) => e['id'] == expenseId);
+      if (expIdx != -1) {
+        newExpenses[expIdx] = {
+          'id': expenseId,
+          'title': title,
+          'amountPaise': amountPaise,
+          'paidBy': paidBy,
+          'createdAt': newExpenses[expIdx]['createdAt'] ?? DateTime.now().toIso8601String(),
+        };
+
+        final newSpent = newExpenses.fold<int>(0, (sum, e) => sum + (e['amountPaise'] as int? ?? 0));
+
+        _trips[tripIdx] = TripModelItem(
+          id: trip.id,
+          name: trip.name,
+          destination: trip.destination,
+          budgetPaise: trip.budgetPaise,
+          spentPaise: newSpent,
+          startDate: trip.startDate,
+          endDate: trip.endDate,
+          members: trip.members,
+          expenses: newExpenses,
+        );
+
+        await _saveTrips();
+        notifyListeners();
+      }
+    }
+  }
+
   Future<void> deleteTripExpense(String tripId, String expenseId) async {
     final tripIdx = _trips.indexWhere((t) => t.id == tripId);
     if (tripIdx != -1) {
@@ -595,6 +940,10 @@ class AppDataRepository extends ChangeNotifier {
     }
   }
 
+  // -------------------------------------------------------------
+  // EMIs & REMINDERS CRUD (ADD, EDIT, DELETE)
+  // -------------------------------------------------------------
+
   Future<void> addEMI({
     required String title,
     required int totalAmountPaise,
@@ -619,6 +968,34 @@ class AppDataRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateEMI({
+    required String id,
+    required String title,
+    required int totalAmountPaise,
+    required int monthlyAmountPaise,
+    required int remainingMonths,
+    required String linkedCardOrBank,
+    required String dueDate,
+    required DateTime lastDate,
+  }) async {
+    final idx = _emis.indexWhere((e) => e.id == id);
+    if (idx != -1) {
+      _emis[idx] = EMIModelItem(
+        id: id,
+        title: title,
+        totalAmountPaise: totalAmountPaise,
+        monthlyAmountPaise: monthlyAmountPaise,
+        remainingMonths: remainingMonths,
+        linkedCardOrBank: linkedCardOrBank,
+        dueDate: dueDate,
+        lastDate: lastDate,
+        reminderEnabled: _emis[idx].reminderEnabled,
+      );
+      await _saveEMIs();
+      notifyListeners();
+    }
+  }
+
   Future<void> deleteEMI(String id) async {
     _emis.removeWhere((e) => e.id == id);
     await _saveEMIs();
@@ -634,7 +1011,88 @@ class AppDataRepository extends ChangeNotifier {
     }
   }
 
-  /// Retrieves day-specific statistics for calendar day filtering
+  // -------------------------------------------------------------
+  // PATT BOOK (കടം / പറ്റ് ബുക്ക്) CRUD
+  // -------------------------------------------------------------
+
+  Future<void> addPattEntry({
+    required String friendName,
+    String? friendPhone,
+    required int amountPaise,
+    required bool youGave,
+    required String note,
+    DateTime? date,
+  }) async {
+    final entry = PattEntryItem(
+      id: 'patt_${DateTime.now().millisecondsSinceEpoch}',
+      friendName: friendName.trim(),
+      friendPhone: friendPhone?.trim(),
+      amountPaise: amountPaise,
+      youGave: youGave,
+      note: note.trim(),
+      date: date ?? DateTime.now(),
+    );
+    _pattEntries.insert(0, entry);
+    await _savePattEntries();
+    notifyListeners();
+  }
+
+  Future<void> updatePattEntry({
+    required String id,
+    required String friendName,
+    String? friendPhone,
+    required int amountPaise,
+    required bool youGave,
+    required String note,
+    DateTime? date,
+  }) async {
+    final idx = _pattEntries.indexWhere((p) => p.id == id);
+    if (idx != -1) {
+      _pattEntries[idx] = PattEntryItem(
+        id: id,
+        friendName: friendName.trim(),
+        friendPhone: friendPhone?.trim(),
+        amountPaise: amountPaise,
+        youGave: youGave,
+        note: note.trim(),
+        date: date ?? _pattEntries[idx].date,
+        isSettled: _pattEntries[idx].isSettled,
+      );
+      await _savePattEntries();
+      notifyListeners();
+    }
+  }
+
+  Future<void> deletePattEntry(String id) async {
+    _pattEntries.removeWhere((p) => p.id == id);
+    await _savePattEntries();
+    notifyListeners();
+  }
+
+  Future<void> settlePattFriend(String friendName) async {
+    for (int i = 0; i < _pattEntries.length; i++) {
+      if (_pattEntries[i].friendName.toLowerCase() == friendName.toLowerCase()) {
+        final old = _pattEntries[i];
+        _pattEntries[i] = PattEntryItem(
+          id: old.id,
+          friendName: old.friendName,
+          friendPhone: old.friendPhone,
+          amountPaise: old.amountPaise,
+          youGave: old.youGave,
+          note: '${old.note} (Settled)',
+          date: old.date,
+          isSettled: true,
+        );
+      }
+    }
+    await _savePattEntries();
+    notifyListeners();
+  }
+
+  // -------------------------------------------------------------
+  // DAY SUMMARY FOR CALENDAR FILTERING
+  // -------------------------------------------------------------
+
   Map<String, dynamic> getDaySummary(DateTime date) {
     final dayTxs = _transactions.where((t) {
       return t.date.year == date.year && t.date.month == date.month && t.date.day == date.day;
@@ -711,28 +1169,38 @@ class AppDataRepository extends ChangeNotifier {
     }
   }
 
+  // -------------------------------------------------------------
+  // PERSISTENCE (USER-SCOPED)
+  // -------------------------------------------------------------
+
   Future<void> _saveTransactions() async {
     final prefs = await SharedPreferences.getInstance();
     final jsonList = _transactions.map((t) => t.toJson()).toList();
-    await prefs.setString(_txKey, jsonEncode(jsonList));
+    await prefs.setString(_getUserKey(_txKey), jsonEncode(jsonList));
   }
 
   Future<void> _saveWallets() async {
     final prefs = await SharedPreferences.getInstance();
     final jsonList = _wallets.map((w) => w.toJson()).toList();
-    await prefs.setString(_walletsKey, jsonEncode(jsonList));
+    await prefs.setString(_getUserKey(_walletsKey), jsonEncode(jsonList));
   }
 
   Future<void> _saveTrips() async {
     final prefs = await SharedPreferences.getInstance();
     final jsonList = _trips.map((t) => t.toJson()).toList();
-    await prefs.setString(_tripsKey, jsonEncode(jsonList));
+    await prefs.setString(_getUserKey(_tripsKey), jsonEncode(jsonList));
   }
 
   Future<void> _saveEMIs() async {
     final prefs = await SharedPreferences.getInstance();
     final jsonList = _emis.map((e) => e.toJson()).toList();
-    await prefs.setString(_emisKey, jsonEncode(jsonList));
+    await prefs.setString(_getUserKey(_emisKey), jsonEncode(jsonList));
+  }
+
+  Future<void> _savePattEntries() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = _pattEntries.map((p) => p.toJson()).toList();
+    await prefs.setString(_getUserKey(_pattKey), jsonEncode(jsonList));
   }
 
   Future<void> _syncWithBackend() async {

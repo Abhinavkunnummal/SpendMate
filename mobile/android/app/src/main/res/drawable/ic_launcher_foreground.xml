@@ -5,38 +5,51 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     
-    <!-- Outer Wallet Shadow Layer -->
+    <!-- Soft Glow Backdrop under Emblem -->
     <path
-        android:fillColor="#15000000"
-        android:pathData="M31,35 h46 c4.4,0 8,3.6 8,8 v30 c0,4.4 -3.6,8 -8,8 h-46 c-4.4,0 -8,-3.6 -8,-8 v-30 c0,-4.4 3.6,-8 8,-8 Z"/>
+        android:fillColor="#25000000"
+        android:pathData="M26,34 h56 c5,0 9,4 9,9 v30 c0,5 -4,9 -9,9 h-56 c-5,0 -9,-4 -9,-9 v-30 c0,-5 4,-9 9,-9 Z"/>
 
-    <!-- Credit Card Peeking from Top of Wallet -->
+    <!-- Premium Card Insert (Metallic Platinum Gradient) -->
     <path
-        android:fillColor="#E0F2EC"
-        android:pathData="M35,28 h38 c3.3,0 6,2.7 6,6 v12 h-50 v-12 c0,-3.3 2.7,-6 6,-6 Z"/>
+        android:fillColor="#E2E8F0"
+        android:pathData="M32,26 h44 c3.5,0 6.5,3 6.5,6.5 v14 h-57 v-14 c0,-3.5 3,-6.5 6.5,-6.5 Z"/>
+    
+    <!-- Card Chip / Gold Line -->
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M40,32 h8 v6 h-8 Z"/>
 
-    <!-- Main Wallet Body (Crisp White) -->
+    <!-- Pure Crisp Card/Wallet Chassis -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M30,36 h48 c4.4,0 8,3.6 8,8 v26 c0,4.4 -3.6,8 -8,8 h-48 c-4.4,0 -8,-3.6 -8,-8 v-26 c0,-4.4 3.6,-8 8,-8 Z"/>
+        android:pathData="M26,33 h56 c4.4,0 8,3.6 8,8 v28 c0,4.4 -3.6,8 -8,8 h-56 c-4.4,0 -8,-3.6 -8,-8 v-28 c0,-4.4 3.6,-8 8,-8 Z"/>
 
-    <!-- Wallet Top Flap / Fold Accent -->
+    <!-- Dynamic Emerald Geometric Diagonal Accent -->
     <path
-        android:fillColor="#F0FAF6"
-        android:pathData="M22,44 c0,-4.4 3.6,-8 8,-8 h48 c4.4,0 8,3.6 8,8 v4 h-64 v-4 Z"/>
+        android:fillColor="#0D9488"
+        android:pathData="M18,52 L90,38 L90,46 L18,60 Z"
+        android:fillAlpha="0.15"/>
 
-    <!-- Wallet Clasp / Fastener Tab -->
+    <!-- Modern "S" / Infinity Rupee Curve Emblem -->
     <path
-        android:fillColor="#16A878"
-        android:pathData="M64,50 h18 c2.2,0 4,1.8 4,4 v8 c0,2.2 -1.8,4 -4,4 h-18 Z"/>
+        android:fillColor="#0F766E"
+        android:pathData="M38,46 h18 c3,0 5,2 5,5 c0,3 -2,5 -5,5 h-8 c-3,0 -5,2 -5,5 c0,3 2,5 5,5 h18"
+        android:strokeWidth="3.5"
+        android:strokeColor="#0F766E"/>
 
-    <!-- Golden Token / Clasp Coin Button -->
+    <!-- Clasp Tab in Vivid Mint -->
     <path
-        android:fillColor="#FFA94D"
-        android:pathData="M73,58 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0"/>
+        android:fillColor="#14B8A6"
+        android:pathData="M66,48 h16 c2.5,0 4.5,2 4.5,4.5 v8 c0,2.5 -2,4.5 -4.5,4.5 h-16 Z"/>
 
-    <!-- Sparkling Dynamic Split / Growth Vector Star -->
+    <!-- Golden Coin Clasp -->
     <path
-        android:fillColor="#16A878"
-        android:pathData="M42,54 L44,48 L46,54 L52,56 L46,58 L44,64 L42,58 L36,56 Z"/>
+        android:fillColor="#FBBF24"
+        android:pathData="M75,57 m-4.5,0 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0"/>
+    
+    <!-- Inner Sparkle Star -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M75,57 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0"/>
 </vector>

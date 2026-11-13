@@ -309,6 +309,185 @@ class DashboardScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 18),
 
+                // Today's Expense & Income Pulse (Separate from Net Worth!)
+                ListenableBuilder(
+                  listenable: AppDataRepository.instance,
+                  builder: (context, _) {
+                    final repo = AppDataRepository.instance;
+                    final todaySpent = repo.totalSpentTodayPaise;
+                    final todayIncome = repo.totalIncomeTodayPaise;
+                    final todayNet = todayIncome - todaySpent;
+
+                    return AppCard(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.today_rounded, size: 20, color: AppColors.primary),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "TODAY'S TRANSACTIONS",
+                                  style: AppTypography.labelSmall(secondaryTextColor).copyWith(fontSize: 10),
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Spend: ₹${(todaySpent / 100).toStringAsFixed(0)}',
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.coral),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      'Income: ₹${(todayIncome / 100).toStringAsFixed(0)}',
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: todayNet >= 0 ? AppColors.primaryLight : AppColors.coralLight,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              todayNet >= 0
+                                  ? '+₹${(todayNet / 100).toStringAsFixed(0)}'
+                                  : '-₹${(todayNet.abs() / 100).toStringAsFixed(0)}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: todayNet >= 0 ? AppColors.primary : AppColors.coral,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 14),
+
+                // Dedicated Patt Book (കടം / പറ്റ് ബുക്ക്) Card (Separate Total from Net Worth!)
+                ListenableBuilder(
+                  listenable: AppDataRepository.instance,
+                  builder: (context, _) {
+                    final repo = AppDataRepository.instance;
+                    final youWillGet = repo.totalYouWillGetPaise;
+                    final youWillGive = repo.totalYouWillGivePaise;
+                    final friendCount = repo.pattFriends.length;
+
+                    return GestureDetector(
+                      onTap: () => context.push('/patt-book'),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: const [
+                                    Icon(Icons.menu_book_rounded, color: Colors.orange, size: 18),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Patt Book (കടം / പറ്റ് ബുക്ക്)',
+                                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14),
+                                    ),
+                                  ],
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '$friendCount Friends · Separate Total',
+                                    style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text('You Will Get (കിട്ടാനുള്ളത്)', style: TextStyle(color: Color(0xFF10B981), fontSize: 10, fontWeight: FontWeight.w600)),
+                                        const SizedBox(height: 2),
+                                        Text('₹${(youWillGet / 100).toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.coral.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: AppColors.coral.withOpacity(0.3)),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text('You Will Give (കൊടുക്കാനുള്ളത്)', style: TextStyle(color: Color(0xFFEF4444), fontSize: 10, fontWeight: FontWeight.w600)),
+                                        const SizedBox(height: 2),
+                                        Text('₹${(youWillGive / 100).toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 18),
+
                 // Dedicated Monthly Spending Limit Space with Exceeded Warning
                 ListenableBuilder(
                   listenable: AppDataRepository.instance,
@@ -401,38 +580,51 @@ class DashboardScreen extends StatelessWidget {
                 const SizedBox(height: 20),
 
                 // Fast Action Floating Widget Row
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _quickActionItem(
-                      icon: Icons.add_rounded,
-                      label: '+ Expense',
-                      color: AppColors.coral,
-                      onTap: () => context.push('/add-transaction?type=expense'),
-                      isDark: isDark,
-                    ),
-                    _quickActionItem(
-                      icon: Icons.arrow_downward_rounded,
-                      label: '+ Income',
-                      color: AppColors.primary,
-                      onTap: () => context.push('/add-transaction?type=income'),
-                      isDark: isDark,
-                    ),
-                    _quickActionItem(
-                      icon: Icons.luggage_outlined,
-                      label: 'New Trip',
-                      color: AppColors.blue,
-                      onTap: () => context.push('/trips'),
-                      isDark: isDark,
-                    ),
-                    _quickActionItem(
-                      icon: Icons.document_scanner_outlined,
-                      label: 'Scan Bill',
-                      color: AppColors.purple,
-                      onTap: () => context.push('/receipt-scanner'),
-                      isDark: isDark,
-                    ),
-                  ],
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _quickActionItem(
+                        icon: Icons.add_rounded,
+                        label: '+ Expense',
+                        color: AppColors.coral,
+                        onTap: () => context.push('/add-transaction?type=expense'),
+                        isDark: isDark,
+                      ),
+                      const SizedBox(width: 14),
+                      _quickActionItem(
+                        icon: Icons.arrow_downward_rounded,
+                        label: '+ Income',
+                        color: AppColors.primary,
+                        onTap: () => context.push('/add-transaction?type=income'),
+                        isDark: isDark,
+                      ),
+                      const SizedBox(width: 14),
+                      _quickActionItem(
+                        icon: Icons.menu_book_rounded,
+                        label: 'Patt Book',
+                        color: Colors.orange,
+                        onTap: () => context.push('/patt-book'),
+                        isDark: isDark,
+                      ),
+                      const SizedBox(width: 14),
+                      _quickActionItem(
+                        icon: Icons.luggage_outlined,
+                        label: 'New Trip',
+                        color: AppColors.blue,
+                        onTap: () => context.push('/trips'),
+                        isDark: isDark,
+                      ),
+                      const SizedBox(width: 14),
+                      _quickActionItem(
+                        icon: Icons.document_scanner_outlined,
+                        label: 'Scan Bill',
+                        color: AppColors.purple,
+                        onTap: () => context.push('/receipt-scanner'),
+                        isDark: isDark,
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 24),
 

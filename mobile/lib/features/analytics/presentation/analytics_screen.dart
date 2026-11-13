@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
@@ -16,6 +17,132 @@ class AnalyticsScreen extends StatefulWidget {
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
   int _selectedPeriod = 1; // 0: Week, 1: Month, 2: Year
 
+  void _showMonthEndReportDialog(BuildContext context) {
+    AppSoundService.playSuccess();
+    final repo = AppDataRepository.instance;
+    final now = DateTime.now();
+    final monthName = DateFormat('MMMM yyyy').format(now);
+
+    final monthTxs = repo.transactions.where((t) => t.date.year == now.year && t.date.month == now.month).toList();
+    final totalSpent = repo.totalSpentThisMonthPaise;
+    final totalIncome = repo.totalIncomeThisMonthPaise;
+    final netSavings = totalIncome - totalSpent;
+    final savingsRate = totalIncome > 0 ? ((netSavings / totalIncome) * 100).clamp(0, 100).toStringAsFixed(1) : '0';
+
+    final buffer = StringBuffer()
+      ..writeln('========================================')
+      ..writeln('     SPENDMATE MONTH-END FINANCIAL REPORT')
+      ..writeln('========================================')
+      ..writeln('Report Period: $monthName')
+      ..writeln('Generated: ${DateFormat('dd MMM yyyy, hh:mm a').format(now)}')
+      ..writeln('----------------------------------------')
+      ..writeln('FINANCIAL SUMMARY:')
+      ..writeln('  Total Inflow (Income):  ₹${(totalIncome / 100).toStringAsFixed(2)}')
+      ..writeln('  Total Outflow (Spent):  ₹${(totalSpent / 100).toStringAsFixed(2)}')
+      ..writeln('  Net Monthly Savings:    ₹${(netSavings / 100).toStringAsFixed(2)}')
+      ..writeln('  Monthly Savings Rate:   $savingsRate%')
+      ..writeln('  Budget Cap Allocated:   ₹${(repo.monthlyBudgetCapPaise / 100).toStringAsFixed(0)}')
+      ..writeln('  Budget Status:          ${repo.isBudgetCapExceeded ? 'EXCEEDED ⚠️' : 'Within Budget ✅'}')
+      ..writeln('----------------------------------------')
+      ..writeln('PATT BOOK (FRIENDS LEDGER) STATUS:')
+      ..writeln('  You Will Get (കിട്ടാനുള്ളത്):   ₹${(repo.totalYouWillGetPaise / 100).toStringAsFixed(0)}')
+      ..writeln('  You Will Give (കൊടുക്കാനുള്ളത്):  ₹${(repo.totalYouWillGivePaise / 100).toStringAsFixed(0)}')
+      ..writeln('----------------------------------------')
+      ..writeln('CATEGORY-WISE EXPENDITURE:');
+
+    // Group expenses by category
+    final Map<String, int> catMap = {};
+    for (var tx in monthTxs.where((t) => t.isExpense)) {
+      catMap[tx.category] = (catMap[tx.category] ?? 0) + tx.amountPaise;
+    }
+    if (catMap.isEmpty) {
+      buffer.writeln('  (No categorized expenses recorded this month)');
+    } else {
+      for (var entry in catMap.entries) {
+        final pct = totalSpent > 0 ? ((entry.value / totalSpent) * 100).toStringAsFixed(1) : '0';
+        buffer.writeln('  • ${entry.key.padRight(20)}: ₹${(entry.value / 100).toStringAsFixed(0)} ($pct%)');
+      }
+    }
+
+    buffer
+      ..writeln('----------------------------------------')
+      ..writeln('SpendMate Smart Financial Intelligence')
+      ..writeln('========================================');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Month-End Report (PDF Statement)', style: AppTypography.titleMedium(AppColors.textPrimaryLight).copyWith(fontSize: 16)),
+                IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(ctx)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              maxHeight: 280,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: SingleChildScrollView(
+                child: Text(
+                  buffer.toString(),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 11, height: 1.4, color: Colors.black87),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: buffer.toString()));
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Month-End Statement copied to clipboard!')),
+                      );
+                    },
+                    icon: const Icon(Icons.copy_rounded, size: 18),
+                    label: const Text('Copy Text'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: buffer.toString()));
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Month-End PDF Report ready to share!'), backgroundColor: AppColors.primary),
+                      );
+                    },
+                    icon: const Icon(Icons.share_rounded, size: 18, color: Colors.white),
+                    label: const Text('Share PDF', style: TextStyle(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -26,6 +153,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       appBar: AppBar(
         title: const Text('Financial Analytics'),
         centerTitle: false,
+        actions: [
+          IconButton(
+            tooltip: 'Month-End Report (PDF)',
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            onPressed: () => _showMonthEndReportDialog(context),
+          ),
+        ],
       ),
       body: ListenableBuilder(
         listenable: AppDataRepository.instance,

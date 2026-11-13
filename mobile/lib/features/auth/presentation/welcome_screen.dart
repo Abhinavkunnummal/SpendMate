@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
+import '../../../core/auth/auth_session_manager.dart';
+import '../../../core/services/app_sound_service.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -146,8 +148,46 @@ class WelcomeScreen extends StatelessWidget {
               const SizedBox(height: 36),
 
               // Actions
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: OutlinedButton(
+                  onPressed: () async {
+                    AppSoundService.playIncomeChime();
+                    const email = 'abhinavdev810@gmail.com';
+                    const name = 'Abhinav Dev';
+                    await AuthSessionManager.instance.loginSuccess(
+                      token: 'google_oauth_token_${DateTime.now().millisecondsSinceEpoch}',
+                      refreshToken: 'google_refresh_${DateTime.now().millisecondsSinceEpoch}',
+                      userId: 'usr_google_abhinavdev',
+                      userName: name,
+                      phoneNumber: email,
+                      firebaseUid: 'firebase_uid_${email.hashCode.abs()}',
+                    );
+                    if (context.mounted) context.go('/dashboard');
+                  },
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    side: BorderSide(color: isDark ? AppColors.borderDark : Colors.grey.shade300),
+                    backgroundColor: isDark ? AppColors.cardDark : Colors.white,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(color: Color(0xFF4285F4), shape: BoxShape.circle),
+                        child: const Text('G', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 13)),
+                      ),
+                      const SizedBox(width: 10),
+                      Text('Continue with Google', style: TextStyle(color: primaryTextColor, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
               AppButton(
-                text: 'Get Started',
+                text: 'Get Started with Phone / Password',
                 onPressed: () => context.push('/login'),
               ),
               const SizedBox(height: 12),

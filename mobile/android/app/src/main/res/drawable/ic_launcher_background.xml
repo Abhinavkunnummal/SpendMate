@@ -4,16 +4,22 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Emerald Brand Gradient Background -->
+    <!-- Deep Emerald to Teal Radial Canvas -->
     <path
-        android:fillColor="#16A878"
+        android:fillColor="#0D9488"
         android:pathData="M0,0h108v108h-108z"/>
-    <!-- Subtle Modern Geometric Darker Emerald Accent -->
+    <!-- Deep Gradient Shadow Bottom -->
     <path
-        android:fillColor="#0D7C57"
-        android:pathData="M0,72 L108,36 L108,108 L0,108 Z"/>
-    <!-- Gentle Ambient Highlight -->
+        android:fillColor="#0F766E"
+        android:pathData="M0,54 L108,24 L108,108 L0,108 Z"/>
+    <!-- Corner Ambient Lighting -->
     <path
-        android:fillColor="#1EB985"
-        android:pathData="M0,0 L108,0 L0,54 Z"/>
+        android:fillColor="#14B8A6"
+        android:pathData="M0,0 L108,0 L0,70 Z"/>
+    <!-- Central Soft Spotlight Ring -->
+    <path
+        android:fillColor="#1DE9B6"
+        android:pathData="M54,20 a34,34 0 1,0 0.1,0 Z"
+        android:strokeAlpha="0.1"
+        android:fillAlpha="0.12"/>
 </vector>
