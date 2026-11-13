@@ -86,7 +86,7 @@ class _PattBookScreenState extends State<PattBookScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Transaction Type Toggle (You Gave vs You Took)
+                  // Transaction Type Toggle (Malayalam + English as requested!)
                   Row(
                     children: [
                       Expanded(
@@ -95,7 +95,9 @@ class _PattBookScreenState extends State<PattBookScreen> {
                             AppSoundService.playIncomeChime();
                             setSheetState(() => youGave = true);
                           },
-                          child: Container(
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeInOut,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             decoration: BoxDecoration(
                               color: youGave ? AppColors.primary : (isDark ? AppColors.surfaceDark : Colors.grey.shade100),
@@ -104,12 +106,21 @@ class _PattBookScreenState extends State<PattBookScreen> {
                                 color: youGave ? AppColors.primary : Colors.transparent,
                                 width: 1.5,
                               ),
+                              boxShadow: youGave
+                                  ? [
+                                      BoxShadow(
+                                        color: AppColors.primary.withOpacity(0.3),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ]
+                                  : null,
                             ),
                             alignment: Alignment.center,
                             child: Column(
                               children: [
                                 Text(
-                                  'You Gave (Lent)',
+                                  'കൊടുത്തു (Lent)',
                                   style: TextStyle(
                                     color: youGave ? Colors.white : primaryTextColor,
                                     fontWeight: FontWeight.w700,
@@ -118,10 +129,11 @@ class _PattBookScreenState extends State<PattBookScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'To Receive',
+                                  'കിട്ടാനുള്ളത് (To Receive)',
                                   style: TextStyle(
                                     color: youGave ? Colors.white70 : secondaryTextColor,
                                     fontSize: 11,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ],
@@ -136,7 +148,9 @@ class _PattBookScreenState extends State<PattBookScreen> {
                             AppSoundService.playExpenseAlert();
                             setSheetState(() => youGave = false);
                           },
-                          child: Container(
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeInOut,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             decoration: BoxDecoration(
                               color: !youGave ? AppColors.coral : (isDark ? AppColors.surfaceDark : Colors.grey.shade100),
@@ -145,12 +159,21 @@ class _PattBookScreenState extends State<PattBookScreen> {
                                 color: !youGave ? AppColors.coral : Colors.transparent,
                                 width: 1.5,
                               ),
+                              boxShadow: !youGave
+                                  ? [
+                                      BoxShadow(
+                                        color: AppColors.coral.withOpacity(0.3),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ]
+                                  : null,
                             ),
                             alignment: Alignment.center,
                             child: Column(
                               children: [
                                 Text(
-                                  'You Took (Borrowed)',
+                                  'വാങ്ങി (Borrowed)',
                                   style: TextStyle(
                                     color: !youGave ? Colors.white : primaryTextColor,
                                     fontWeight: FontWeight.w700,
@@ -159,10 +182,11 @@ class _PattBookScreenState extends State<PattBookScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'To Pay',
+                                  'കൊടുക്കാനുള്ളത് (To Pay)',
                                   style: TextStyle(
                                     color: !youGave ? Colors.white70 : secondaryTextColor,
                                     fontSize: 11,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ],
@@ -384,7 +408,7 @@ class _PattBookScreenState extends State<PattBookScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Quick Action Bar: Settle / Share Statement / Add
+                // Quick Action Bar: Settle / Add Entry (Share Statement removed as requested)
                 Row(
                   children: [
                     Expanded(
@@ -406,30 +430,28 @@ class _PattBookScreenState extends State<PattBookScreen> {
                             }
                           }
                         },
-                        icon: const Icon(Icons.handshake_outlined, size: 16),
-                        label: const Text('Settle', style: TextStyle(fontSize: 12)),
+                        icon: const Icon(Icons.handshake_outlined, size: 18),
+                        label: const Text('Settle All', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          _shareFriendStatement(context, friendName, entries, balancePaise);
-                        },
-                        icon: const Icon(Icons.share_outlined, size: 16),
-                        label: const Text('Statement', style: TextStyle(fontSize: 12)),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () {
                           Navigator.pop(ctx);
                           _showAddEditEntrySheet(context, defaultFriend: friendName);
                         },
-                        icon: const Icon(Icons.add_rounded, size: 16, color: Colors.white),
-                        label: const Text('+ Entry', style: TextStyle(color: Colors.white, fontSize: 12)),
-                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                        icon: const Icon(Icons.add_rounded, size: 18, color: Colors.white),
+                        label: const Text('+ Add Entry', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
                       ),
                     ),
                   ],
@@ -546,44 +568,6 @@ class _PattBookScreenState extends State<PattBookScreen> {
     );
   }
 
-  void _shareFriendStatement(BuildContext context, String friendName, List<PattEntryItem> entries, int balancePaise) {
-    AppSoundService.playSuccess();
-    final buffer = StringBuffer()
-      ..writeln('====================================')
-      ..writeln('    SPENDMATE PATT BOOK STATEMENT   ')
-      ..writeln('====================================')
-      ..writeln('Friend: $friendName')
-      ..writeln('Date: ${DateFormat('dd MMM yyyy').format(DateTime.now())}')
-      ..writeln('------------------------------------');
-
-    if (balancePaise > 0) {
-      buffer.writeln('STATUS: You will get ₹${(balancePaise / 100).toStringAsFixed(0)} from $friendName (To Receive)');
-    } else if (balancePaise < 0) {
-      buffer.writeln('STATUS: You owe ₹${(balancePaise.abs() / 100).toStringAsFixed(0)} to $friendName (To Pay)');
-    } else {
-      buffer.writeln('STATUS: Fully Settled up (₹0 balance)');
-    }
-
-    buffer.writeln('------------------------------------');
-    buffer.writeln('ENTRY BREAKDOWN:');
-    for (var e in entries) {
-      final sign = e.youGave ? '(You gave)   +' : '(You took)   -';
-      buffer.writeln('• ${DateFormat('dd/MM/yy').format(e.date)}: $sign₹${(e.amountPaise / 100).toStringAsFixed(0)} [${e.note}]');
-    }
-    buffer.writeln('------------------------------------');
-    buffer.writeln('Tracked with SpendMate App');
-    buffer.writeln('====================================');
-
-    Clipboard.setData(ClipboardData(text: buffer.toString()));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Statement for $friendName copied to clipboard! You can paste and share via WhatsApp or SMS.'),
-        backgroundColor: AppColors.primary,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -645,30 +629,36 @@ class _PattBookScreenState extends State<PattBookScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.15),
-                                  shape: BoxShape.circle,
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.15),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.menu_book_rounded, color: Colors.white, size: 16),
                                 ),
-                                child: const Icon(Icons.menu_book_rounded, color: Colors.white, size: 16),
-                              ),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'FRIENDS IOU / KHATA LEDGER',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.5,
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Text(
+                                    'FRIENDS IOU LEDGER',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.5,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
@@ -676,7 +666,7 @@ class _PattBookScreenState extends State<PattBookScreen> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Text(
-                              'Separate from Net Worth',
+                              'Separate Total',
                               style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600),
                             ),
                           ),

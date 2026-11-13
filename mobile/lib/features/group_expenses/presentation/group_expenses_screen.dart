@@ -18,6 +18,17 @@ class GroupExpensesScreen extends StatefulWidget {
 }
 
 class _GroupExpensesScreenState extends State<GroupExpensesScreen> {
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+  String? _selectedMember;
+  String _sortOrder = 'newest'; // 'newest', 'amount_desc', 'amount_asc', 'name'
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   void _showEditExpenseDialog(BuildContext context, Map<String, dynamic> exp, List<String> members) {
     final titleController = TextEditingController(text: exp['title'] ?? '');
     final amountController = TextEditingController(
@@ -163,6 +174,38 @@ class _GroupExpensesScreenState extends State<GroupExpensesScreen> {
             ? trip.members
             : [AuthSessionManager.instance.displayName];
 
+        // Filtering Logic
+        List<Map<String, dynamic>> filteredExpenses = List.from(expenses);
+
+        if (_selectedMember != null && _selectedMember!.isNotEmpty) {
+          filteredExpenses = filteredExpenses
+              .where((e) => (e['paidBy'] as String? ?? '').toLowerCase() == _selectedMember!.toLowerCase())
+              .toList();
+        }
+
+        if (_searchQuery.isNotEmpty) {
+          final query = _searchQuery.toLowerCase();
+          filteredExpenses = filteredExpenses.where((e) {
+            final title = (e['title'] as String? ?? '').toLowerCase();
+            final paidBy = (e['paidBy'] as String? ?? '').toLowerCase();
+            return title.contains(query) || paidBy.contains(query);
+          }).toList();
+        }
+
+        // Sorting Logic
+        if (_sortOrder == 'amount_desc') {
+          filteredExpenses.sort((a, b) => ((b['amountPaise'] as num?)?.toInt() ?? 0).compareTo((a['amountPaise'] as num?)?.toInt() ?? 0));
+        } else if (_sortOrder == 'amount_asc') {
+          filteredExpenses.sort((a, b) => ((a['amountPaise'] as num?)?.toInt() ?? 0).compareTo((b['amountPaise'] as num?)?.toInt() ?? 0));
+        } else if (_sortOrder == 'name') {
+          filteredExpenses.sort((a, b) => (a['paidBy'] as String? ?? '').compareTo(b['paidBy'] as String? ?? ''));
+        } else {
+          // 'newest'
+          filteredExpenses = filteredExpenses.reversed.toList();
+        }
+
+        final filteredTotalPaise = filteredExpenses.fold(0, (sum, e) => sum + ((e['amountPaise'] as num?)?.toInt() ?? 0));
+
         return Scaffold(
           appBar: AppBar(
             title: const Text('Group Expenses'),
@@ -230,39 +273,197 @@ class _GroupExpensesScreenState extends State<GroupExpensesScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 18),
 
-                // Expense List Header
+                // Search Bar with Clear Button
+                TextField(
+                  controller: _searchController,
+                  onChanged: (val) => setState(() => _searchQuery = val.trim()),
+                  decoration: InputDecoration(
+                    hintText: 'Search by member or expense item...',
+                    prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                    suffixIcon: _searchQuery.isNotEmpty || _selectedMember != null
+                        ? IconButton(
+                            icon: const Icon(Icons.clear_rounded, size: 18),
+                            onPressed: () {
+                              setState(() {
+                                _searchController.clear();
+                                _searchQuery = '';
+                                _selectedMember = null;
+                              });
+                            },
+                          )
+                        : null,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Member Filter Chips with Total Paid per Person
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      FilterChip(
+                        selected: _selectedMember == null,
+                        label: Text('All (${expenses.length})'),
+                        onSelected: (_) {
+                          AppSoundService.playSuccess();
+                          setState(() => _selectedMember = null);
+                        },
+                        selectedColor: AppColors.blue.withOpacity(0.2),
+                      ),
+                      const SizedBox(width: 8),
+                      ...members.map((m) {
+                        final memberTotal = expenses
+                            .where((e) => (e['paidBy'] as String? ?? '').toLowerCase() == m.toLowerCase())
+                            .fold(0, (sum, e) => sum + ((e['amountPaise'] as num?)?.toInt() ?? 0));
+                        final isSelected = _selectedMember?.toLowerCase() == m.toLowerCase();
+
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: FilterChip(
+                            selected: isSelected,
+                            avatar: CircleAvatar(
+                              radius: 10,
+                              backgroundColor: isSelected ? AppColors.blue : Colors.grey.shade300,
+                              child: Text(
+                                m.isNotEmpty ? m[0].toUpperCase() : 'M',
+                                style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            label: Text(
+                              '$m (₹${(memberTotal / 100).toStringAsFixed(0)})',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              ),
+                            ),
+                            selectedColor: AppColors.blue.withOpacity(0.25),
+                            onSelected: (_) {
+                              AppSoundService.playSuccess();
+                              setState(() {
+                                if (isSelected) {
+                                  _selectedMember = null;
+                                } else {
+                                  _selectedMember = m;
+                                }
+                              });
+                            },
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Search & Filter Summary Banner
+                if (_searchQuery.isNotEmpty || _selectedMember != null)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.blue.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.blue.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _selectedMember != null
+                                ? 'Total Paid by $_selectedMember: ₹${(filteredTotalPaise / 100).toStringAsFixed(0)}'
+                                : 'Matches for "$_searchQuery": ₹${(filteredTotalPaise / 100).toStringAsFixed(0)}',
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.blue),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          '${filteredExpenses.length} items',
+                          style: AppTypography.bodySmall(secondaryTextColor),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // Expense List Header with Sort Option
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('ALL SHARED EXPENSES (${expenses.length})', style: AppTypography.labelSmall(secondaryTextColor)),
-                    TextButton.icon(
-                      onPressed: () => context.push('/trips/${widget.tripId}/add-expense'),
-                      icon: const Icon(Icons.add, size: 14, color: AppColors.primary),
-                      label: Text('Add Item', style: AppTypography.labelSmall(AppColors.primary)),
+                    Text('SHARED EXPENSES (${filteredExpenses.length})', style: AppTypography.labelSmall(secondaryTextColor)),
+                    Row(
+                      children: [
+                        PopupMenuButton<String>(
+                          icon: Row(
+                            children: const [
+                              Icon(Icons.sort_rounded, size: 16, color: AppColors.primary),
+                              SizedBox(width: 4),
+                              Text('Sort', style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                          onSelected: (val) {
+                            AppSoundService.playSuccess();
+                            setState(() => _sortOrder = val);
+                          },
+                          itemBuilder: (ctx) => [
+                            const PopupMenuItem(
+                              value: 'newest',
+                              child: Text('Newest First'),
+                            ),
+                            const PopupMenuItem(
+                              value: 'amount_desc',
+                              child: Text('Highest Amount (High -> Low)'),
+                            ),
+                            const PopupMenuItem(
+                              value: 'amount_asc',
+                              child: Text('Lowest Amount (Low -> High)'),
+                            ),
+                            const PopupMenuItem(
+                              value: 'name',
+                              child: Text('Sort by Payer Name'),
+                            ),
+                          ],
+                        ),
+                        TextButton.icon(
+                          onPressed: () => context.push('/trips/${widget.tripId}/add-expense'),
+                          icon: const Icon(Icons.add, size: 14, color: AppColors.primary),
+                          label: Text('Add Item', style: AppTypography.labelSmall(AppColors.primary)),
+                        ),
+                      ],
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
 
-                if (expenses.isEmpty)
+                if (filteredExpenses.isEmpty)
                   Center(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 40.0),
                       child: Column(
                         children: [
-                          Icon(Icons.receipt_long_outlined, size: 48, color: secondaryTextColor),
+                          Icon(Icons.search_off_rounded, size: 48, color: secondaryTextColor),
                           const SizedBox(height: 12),
-                          Text('No group expenses added yet', style: AppTypography.titleMedium(primaryTextColor)),
+                          Text(
+                            expenses.isEmpty ? 'No group expenses added yet' : 'No expenses match search criteria',
+                            style: AppTypography.titleMedium(primaryTextColor),
+                          ),
                           const SizedBox(height: 4),
-                          Text('Tap "+ Add Item" to add petrol, food, or stays', style: AppTypography.bodySmall(secondaryTextColor)),
+                          Text(
+                            expenses.isEmpty
+                                ? 'Tap "+ Add Item" to add petrol, food, or stays'
+                                : 'Try searching with another member name or keyword',
+                            style: AppTypography.bodySmall(secondaryTextColor),
+                          ),
                         ],
                       ),
                     ),
                   )
                 else
-                  ...expenses.map((exp) {
+                  ...filteredExpenses.map((exp) {
                     final title = exp['title'] ?? 'Expense';
                     final amountPaise = exp['amountPaise'] as int? ?? 0;
                     final paidBy = exp['paidBy'] ?? 'Friend';

@@ -77,7 +77,7 @@ class _WalletsScreenState extends State<WalletsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'TOTAL NET LIQUIDITY',
+                        'TOTAL NET WORTH & NET LIQUIDITY',
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.85),
                           fontSize: 11,

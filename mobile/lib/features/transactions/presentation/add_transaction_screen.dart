@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
@@ -366,6 +367,125 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     );
                   },
                 ),
+              ),
+
+              // Previous category transactions history preview
+              ListenableBuilder(
+                listenable: AppDataRepository.instance,
+                builder: (context, _) {
+                  final prevTxs = AppDataRepository.instance.transactions
+                      .where((t) => t.category.toLowerCase() == _selectedCategory.toLowerCase())
+                      .toList();
+                  final totalCategorySpent = prevTxs.where((t) => t.isExpense).fold(0, (sum, t) => sum + t.amountPaise);
+
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeInOut,
+                    margin: const EdgeInsets.only(top: 14),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.surfaceDark : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isDark ? AppColors.borderDark : Colors.grey.shade200,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.history_rounded, size: 16, color: AppColors.primary),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Previous $_selectedCategory',
+                                  style: AppTypography.labelSmall(primaryTextColor).copyWith(fontSize: 12, fontWeight: FontWeight.w700),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              'Total: ₹${(totalCategorySpent / 100).toStringAsFixed(0)}',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        if (prevTxs.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6.0),
+                            child: Text(
+                              'No previous entries in $_selectedCategory yet. This will be the first!',
+                              style: AppTypography.bodySmall(secondaryTextColor),
+                            ),
+                          )
+                        else ...[
+                          Text(
+                            'Recent Entries (${prevTxs.length}) · Tap to quick-fill:',
+                            style: AppTypography.bodySmall(secondaryTextColor).copyWith(fontSize: 11),
+                          ),
+                          const SizedBox(height: 6),
+                          ...prevTxs.take(4).map((tx) {
+                            return InkWell(
+                              onTap: () {
+                                AppSoundService.playIncomeChime();
+                                setState(() {
+                                  _titleController.text = tx.title;
+                                  _amountController.text = (tx.amountPaise / 100).toStringAsFixed(0);
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 4.0),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            tx.isExpense ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                                            size: 14,
+                                            color: tx.isExpense ? AppColors.coral : AppColors.primary,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              tx.title,
+                                              style: AppTypography.bodyMedium(primaryTextColor).copyWith(fontSize: 12),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '₹${(tx.amountPaise / 100).toStringAsFixed(0)}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: tx.isExpense ? AppColors.coral : AppColors.primary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      DateFormat('dd MMM').format(tx.date),
+                                      style: TextStyle(fontSize: 10, color: secondaryTextColor),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
+                      ],
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 24),
 

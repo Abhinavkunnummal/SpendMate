@@ -157,12 +157,12 @@ class DashboardScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 18),
 
-                // Apple Wallet Style Balance Card (Gain in Green, Loss in Red, Not mixed!)
+                // Apple Wallet Style Balance Card (Account Balance - Pure Bank & Cash Liquidity!)
                 ListenableBuilder(
                   listenable: AppDataRepository.instance,
                   builder: (context, _) {
                     final repo = AppDataRepository.instance;
-                    final netWorth = repo.netWorthPaise;
+                    final accountBalance = repo.bankLiquidityPaise;
                     final income = repo.totalIncomeThisMonthPaise;
                     final spent = repo.totalSpentThisMonthPaise;
                     final walletCount = repo.wallets.length;
@@ -191,17 +191,21 @@ class DashboardScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                'TOTAL AVAILABLE NET WORTH',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.85),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.6,
+                              Expanded(
+                                child: Text(
+                                  'TOTAL ACCOUNT BALANCE',
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.85),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.6,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              const SizedBox(width: 8),
                               GestureDetector(
                                 onTap: () => context.push('/wallets'),
                                 child: Container(
@@ -226,7 +230,7 @@ class DashboardScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            currencyFormat.format(netWorth / 100),
+                            currencyFormat.format(accountBalance / 100),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 30,
@@ -380,43 +384,7 @@ class DashboardScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 18),
 
-                // Fast Action Floating Widget Row (Expense, Income, New Trip - Scan Bill Removed)
-                Row(
-                  children: [
-                    Expanded(
-                      child: _quickActionItem(
-                        icon: Icons.add_rounded,
-                        label: '+ Expense',
-                        color: AppColors.coral,
-                        onTap: () => context.push('/add-transaction?type=expense'),
-                        isDark: isDark,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _quickActionItem(
-                        icon: Icons.arrow_downward_rounded,
-                        label: '+ Income',
-                        color: AppColors.primary,
-                        onTap: () => context.push('/add-transaction?type=income'),
-                        isDark: isDark,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _quickActionItem(
-                        icon: Icons.luggage_outlined,
-                        label: 'New Trip',
-                        color: AppColors.blue,
-                        onTap: () => context.push('/trips'),
-                        isDark: isDark,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-
-                // Dedicated Patt Book Card (Moved DOWN right under Income/Expense Fast Actions!)
+                // Dedicated Patt Book Card (Positioned on TOP of Expense/Income actions!)
                 ListenableBuilder(
                   listenable: AppDataRepository.instance,
                   builder: (context, _) {
@@ -426,7 +394,10 @@ class DashboardScreen extends StatelessWidget {
                     final friendCount = repo.pattFriends.length;
 
                     return GestureDetector(
-                      onTap: () => context.push('/patt-book'),
+                      onTap: () {
+                        AppSoundService.playIncomeChime();
+                        context.push('/patt-book');
+                      },
                       child: Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
@@ -439,7 +410,7 @@ class DashboardScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
+                              color: Colors.black.withOpacity(0.12),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -521,6 +492,47 @@ class DashboardScreen extends StatelessWidget {
                       ),
                     );
                   },
+                ),
+                const SizedBox(height: 18),
+
+                // Fast Action Floating Widget Row (Expense, Income, New Trip, Calendar Reminders)
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _quickActionItem(
+                        icon: Icons.add_rounded,
+                        label: '+ Expense',
+                        color: AppColors.coral,
+                        onTap: () => context.push('/add-transaction?type=expense'),
+                        isDark: isDark,
+                      ),
+                      const SizedBox(width: 14),
+                      _quickActionItem(
+                        icon: Icons.arrow_downward_rounded,
+                        label: '+ Income',
+                        color: AppColors.primary,
+                        onTap: () => context.push('/add-transaction?type=income'),
+                        isDark: isDark,
+                      ),
+                      const SizedBox(width: 14),
+                      _quickActionItem(
+                        icon: Icons.luggage_outlined,
+                        label: 'New Trip',
+                        color: AppColors.blue,
+                        onTap: () => context.push('/trips'),
+                        isDark: isDark,
+                      ),
+                      const SizedBox(width: 14),
+                      _quickActionItem(
+                        icon: Icons.calendar_month_rounded,
+                        label: 'Calendar',
+                        color: AppColors.purple,
+                        onTap: () => context.push('/recurring-expenses'),
+                        isDark: isDark,
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 18),
 
@@ -842,32 +854,44 @@ class DashboardScreen extends StatelessWidget {
     required VoidCallback onTap,
     required bool isDark,
   }) {
-    return GestureDetector(
+    return InkWell(
       onTap: () {
         AppSoundService.playSuccess();
         onTap();
       },
-      child: Column(
-        children: [
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.14),
-              borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Column(
+          children: [
+            Container(
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.14),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: color.withOpacity(0.25), width: 1.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withOpacity(0.12),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Icon(icon, color: color, size: 26),
             ),
-            child: Icon(icon, color: color, size: 26),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
