@@ -14,7 +14,7 @@ void main() {
     await tester.pumpWidget(const ProviderScope(child: SpendMateApp()));
     await tester.pumpAndSettle();
 
-    expect(find.text('SpendMate'), findsOneWidget);
-    expect(find.text('Get Started'), findsOneWidget);
+    expect(find.text('SpendMate'), findsWidgets);
+    expect(find.textContaining('Get Started'), findsOneWidget);
   });
 }

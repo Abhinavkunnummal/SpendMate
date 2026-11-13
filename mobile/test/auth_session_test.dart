@@ -46,6 +46,12 @@ void main() {
     });
 
     test('Preserves session on app restart / re-initialization', () async {
+      FlutterSecureStorage.setMockInitialValues({
+        'spendmate_auth_token': 'test_token_abc_123',
+        'spendmate_refresh_token': 'test_refresh_xyz_456',
+        'spendmate_user_id': 'user_123',
+        'spendmate_user_name': 'Test User',
+      });
       final auth = AuthSessionManager.instance;
       // Re-running initialize() simulates closing and reopening app
       await auth.initialize();
@@ -56,7 +62,16 @@ void main() {
     });
 
     test('Logout clears session data, storage, and emits authStateChanges false', () async {
+      FlutterSecureStorage.setMockInitialValues({
+        'spendmate_auth_token': 'test_token_abc_123',
+        'spendmate_refresh_token': 'test_refresh_xyz_456',
+        'spendmate_user_id': 'user_123',
+        'spendmate_user_name': 'Test User',
+      });
       final auth = AuthSessionManager.instance;
+      await auth.initialize();
+      expect(auth.isAuthenticated, isTrue);
+
       final authStates = <bool>[];
       final subscription = auth.authStateChanges().listen(authStates.add);
 

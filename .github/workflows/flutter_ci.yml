@@ -67,11 +67,19 @@ jobs:
           path: mobile/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: warn
 
+      - name: Print Failure Logs
+        if: failure()
+        run: |
+          echo "=== APP OUTPUT LOGS ==="
+          cat build/app/outputs/logs/*.log 2>/dev/null || true
+          echo "=== GRADLE LOGS ==="
+          find /home/runner/.gradle/daemon/ -type f -name "*.log" -exec tail -n 50 {} + 2>/dev/null || true
+
       - name: Upload Failure Logs
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: build-failure-logs
           path: |
-            mobile/build/app/outputs/logs/
+            build/app/outputs/logs/
             /home/runner/.gradle/daemon/
