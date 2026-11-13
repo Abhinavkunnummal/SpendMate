@@ -58,7 +58,14 @@ jobs:
         run: flutter test || true
 
       - name: Build Android APK
-        run: flutter build apk --debug
+        run: |
+          flutter build apk --debug 2>&1 | tee build_apk.log
+          if [ ! -f "build/app/outputs/flutter-apk/app-debug.apk" ]; then
+            echo "::error::Gradle APK build failed!"
+            echo "========== GRADLE BUILD LOG (LAST 80 LINES) =========="
+            tail -n 80 build_apk.log
+            exit 1
+          fi
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4

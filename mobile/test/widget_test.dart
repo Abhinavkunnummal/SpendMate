@@ -11,6 +11,7 @@ void main() {
   });
 
   testWidgets('SpendMate App boots and shows Welcome Branding', (WidgetTester tester) async {
+    await AuthSessionManager.instance.initialize();
     await tester.pumpWidget(const ProviderScope(child: SpendMateApp()));
     await tester.pumpAndSettle();
 
